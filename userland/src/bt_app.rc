@@ -1,0 +1,18 @@
+# A2 run 79: launch the installed app with the entitlement-signed battery_test, last so its
+# bluetoothd session lines land in the console tail. CLI arm first for the comparison baseline.
+/redwood/bin/net_test wait 22
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test lookup com.apple.server.bluetooth
+/redwood/bin/net_test procs bluetooth
+/redwood/bin/net_test waitproc SpringBoard 90
+/redwood/bin/net_test fbwait 90
+/redwood/bin/net_test wait 12
+/redwood/bin/rwtouch swipe 0.5 0.985 0.5 0.3 200
+/redwood/bin/net_test wait 3
+/redwood/bin/bt_test 20
+/redwood/bin/hello_dyn A2: launching the app now
+/redwood/bin/battery_test launch com.redwood.bt_test
+/redwood/bin/net_test wait 30
+/redwood/bin/net_test procs bt_test
+/redwood/bin/net_test procs bluetooth
+/redwood/bin/fbgrab -log a2app 200 0.3

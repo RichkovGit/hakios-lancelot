@@ -1,0 +1,22 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net25, REST=1 (with WIFID=1), MORE_JOBS="com.apple.bluetoothd com.apple.BlueTool",
+# NILINJECT=Preferences, connsys_step=17, XNU_SECS=150, applog=1 applog_name=Preferences.
+#
+# Run 93 (logs/lancelot-connsys45.log) is the first in which Settings did not die of the dictionary:
+# tap at ~114.2 s, the program appears at once and goes only after 11.10 s. So the hook in
+# libredwood-nil.dylib did its work -- and the reason its lines are missing from the kept buffer is
+# the sandbox: an application's write to kern.redwood.say is refused (no "redwood: ... started" line
+# of libredwood-app.dylib has ever appeared either, and Sileo is sandboxed too). The same library now
+# writes its lines on the standard error as well, which applog=1 points at the console.
+#
+# What is wanted here is the second death: 11 seconds after it opened, of something else. "end" in
+# the watchdie line stops the run at that death, so its last words are in the console's tail; and the
+# nilfix lines (if the second dictionary is one too) are right before them.
+/redwood/bin/net_test wait 22
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test fbwait 60
+/redwood/bin/net_test wait 16
+/redwood/bin/rwtouch swipe 0.5 0.985 0.5 0.3 200
+/redwood/bin/net_test wait 3
+/redwood/bin/rwtouch tap 0.543 0.712
+/redwood/bin/net_test watchdie Preferences 30 end

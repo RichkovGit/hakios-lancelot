@@ -1,0 +1,374 @@
+--- a/src/gallium/drivers/panfrost/pan_job.c
++++ b/src/gallium/drivers/panfrost/pan_job.c
+@@ -294,6 +294,25 @@
+    }
+ }
+ 
++/*
++ * Redwood: of what "buffers ... us a draw" in the draw line is made (run 34: a microsecond for
++ * every buffer of a draw, and the same with the handles of buffers taken from the smallest free
++ * slot as with a ring over all 4096). Two suspects: the batch's list of buffers, which is one byte
++ * a handle and grows to the largest handle a draw touches (panfrost_batch_get_bo_access), and
++ * panfrost_batch_update_access, which may submit another batch -- a whole submit, 30 to 50 us --
++ * when the texture a draw reads was written by a batch still queued. On with PANPROF.
++ */
++uint64_t redwood_tex_add_ns, redwood_tex_acc_ns;
++uint32_t redwood_tex_acc_submits, redwood_bo_adds, redwood_bo_grows, redwood_bo_handle_max;
++static int redwood_tex_prof = -1;
++static int
++redwood_tex_prof_on(void)
++{
++   if (redwood_tex_prof < 0)
++      redwood_tex_prof = getenv("PANPROF") != NULL;
++   return redwood_tex_prof;
++}
++
+ static pan_bo_access *
+ panfrost_batch_get_bo_access(struct panfrost_batch *batch, unsigned handle)
+ {
+@@ -302,6 +321,8 @@
+    if (handle >= size) {
+       unsigned grow = handle + 1 - size;
+ 
++      redwood_bo_grows++;
++      redwood_bo_handle_max = MAX2(redwood_bo_handle_max, handle + 1);
+       memset(util_dynarray_grow(&batch->bos, pan_bo_access, grow), 0,
+              grow * sizeof(pan_bo_access));
+    }
+@@ -332,6 +353,8 @@
+    if (!bo)
+       return;
+ 
++   redwood_bo_adds++;
++
+    pan_bo_access *entry =
+       panfrost_batch_get_bo_access(batch, panfrost_bo_handle(bo));
+    pan_bo_access old_flags = *entry;
+@@ -377,6 +400,7 @@
+                          enum pipe_shader_type stage)
+ {
+    uint32_t access = PAN_BO_ACCESS_READ | panfrost_access_for_stage(stage);
++   int64_t began = redwood_tex_prof_on() ? os_time_get_nano() : 0;
+ 
+    panfrost_batch_add_bo_old(batch, rsrc->bo, access);
+ 
+@@ -385,7 +409,23 @@
+    if (rsrc->shadow_image)
+       panfrost_batch_add_bo_old(batch, rsrc->shadow_image->bo, access);
+ 
+-   panfrost_batch_update_access(batch, rsrc, false);
++   if (began) {
++      int64_t now = os_time_get_nano();
++
++      redwood_tex_add_ns += (uint64_t)(now - began);
++      began = now;
++   }
++
++   {
++      extern uint64_t redwood_pan_submits;
++      uint64_t submits = redwood_pan_submits;
++
++      panfrost_batch_update_access(batch, rsrc, false);
++      if (began) {
++         redwood_tex_acc_ns += (uint64_t)(os_time_get_nano() - began);
++         redwood_tex_acc_submits += (uint32_t)(redwood_pan_submits - submits);
++      }
++   }
+ }
+ 
+ void
+--- a/src/gallium/drivers/panfrost/pan_cmdstream.c
++++ b/src/gallium/drivers/panfrost/pan_cmdstream.c
+@@ -73,6 +73,9 @@
+    PROF_VERTEX,         /* panfrost_draw_get_vertex_count: vertex and index buffers made ready */
+    PROF_STATE,          /* panfrost_update_state_3d, the shader states, clean_state_3d */
+    PROF_TEXDESC,        /* ... of that, the textures' descriptors made (a draw's own state, mostly) */
++   PROF_TEXALLOC,       /* ... ... the room for them */
++   PROF_TEXVIEW,        /* ... ... each view's descriptor, and its buffer brought up to date */
++   PROF_TEXACCESS,      /* ... ... and each buffer put on the batch's list */
+    PROF_SAMPLER,        /* ... and the samplers' */
+    PROF_RSD,            /* ... and the fragment shader's renderer state descriptor */
+    PROF_CONST,          /* ... and the uniforms */
+@@ -107,13 +110,22 @@
+ redwood_prof_say(void)
+ {
+    extern uint64_t redwood_pan_submit_ns, redwood_pan_submits;
++   /* (src/mesa/main/draw.c: the part of a draw that is spent above this driver) */
++   extern uint64_t redwood_gl_ns[6], redwood_gl_draws;
++   extern uint32_t redwood_gl_dirty_draws;
++   static uint64_t said_gl[6], said_gl_draws, said_dirty;
++   extern uint64_t redwood_tex_add_ns, redwood_tex_acc_ns;
++   extern uint32_t redwood_tex_acc_submits, redwood_bo_adds, redwood_bo_grows, redwood_bo_handle_max;
+    static uint64_t said_submit_ns, said_submits;
++   static uint64_t said_tex_add_ns, said_tex_acc_ns, said_tex_acc_submits, said_bo_adds, said_bo_grows;
+    uint64_t draws = redwood_prof_draws ? redwood_prof_draws : 1;
+    char line[768];
+    int n;
+ 
+    n = snprintf(line, sizeof(line),
+-      "redwood draw: %llu draws, %llu us a draw (prepare %llu, vertex buffers %llu, state %llu: textures %llu, "
++      "redwood draw: %llu draws, %llu us a draw (prepare %llu, vertex buffers %llu, state %llu: textures %llu "
++      "(room %llu, views %llu, buffers %llu: add %llu, access %llu, %llu submits of %llu adds, "
++      "grows %llu, handle max %llu), "
+       "samplers %llu, renderer state %llu, uniforms %llu, clean %llu; varying %llu, launch %llu); "
+       "%llu batches submitted in them, %llu us a draw\n",
+       (unsigned long long)redwood_prof_draws,
+@@ -122,6 +134,15 @@
+       (unsigned long long)(redwood_prof_ns[PROF_VERTEX] / 1000 / draws),
+       (unsigned long long)(redwood_prof_ns[PROF_STATE] / 1000 / draws),
+       (unsigned long long)(redwood_prof_ns[PROF_TEXDESC] / 1000 / draws),
++      (unsigned long long)(redwood_prof_ns[PROF_TEXALLOC] / 1000 / draws),
++      (unsigned long long)(redwood_prof_ns[PROF_TEXVIEW] / 1000 / draws),
++      (unsigned long long)(redwood_prof_ns[PROF_TEXACCESS] / 1000 / draws),
++      (unsigned long long)((redwood_tex_add_ns - said_tex_add_ns) / 1000 / draws),
++      (unsigned long long)((redwood_tex_acc_ns - said_tex_acc_ns) / 1000 / draws),
++      (unsigned long long)(redwood_tex_acc_submits - said_tex_acc_submits),
++      (unsigned long long)(redwood_bo_adds - said_bo_adds),
++      (unsigned long long)(redwood_bo_grows - said_bo_grows),
++      (unsigned long long)redwood_bo_handle_max,
+       (unsigned long long)(redwood_prof_ns[PROF_SAMPLER] / 1000 / draws),
+       (unsigned long long)(redwood_prof_ns[PROF_RSD] / 1000 / draws),
+       (unsigned long long)(redwood_prof_ns[PROF_CONST] / 1000 / draws),
+@@ -132,8 +153,48 @@
+       (unsigned long long)((redwood_pan_submit_ns - said_submit_ns) / 1000 / draws));
+    if (n > 0)
+       (void)!write(2, line, (size_t)n);
++
++   if (redwood_gl_draws != said_gl_draws) {
++      int64_t gl_draws = (int64_t)(redwood_gl_draws - said_gl_draws);
++      int64_t all = (int64_t)(redwood_gl_ns[3] - said_gl[3]) / 1000 / gl_draws;
++      int64_t entry = (int64_t)(redwood_gl_ns[0] - said_gl[0]) / 1000 / gl_draws;
++      int64_t prepare = (int64_t)(redwood_gl_ns[1] - said_gl[1]) / 1000 / gl_draws;
++      int64_t cso = (int64_t)(redwood_gl_ns[2] - said_gl[2]) / 1000 / gl_draws;
++      int64_t driver = (int64_t)(redwood_prof_ns[PROF_DRAW] / 1000 / draws);
++      int64_t st_prep = (int64_t)(redwood_gl_ns[4] - said_gl[4]) / 1000 / gl_draws;
++      int64_t bounds = (int64_t)(redwood_gl_ns[5] - said_gl[5]) / 1000 / gl_draws;
++      int64_t rest = all - entry - prepare - cso;
++
++      n = snprintf(line, sizeof(line),
++         "redwood gl: %llu draws, %llu us a draw in all: entry %llu, prepare %llu (st_prepare_draw "
++         "%llu, index bounds %llu, other %llu), state tracker %llu (of which this driver %llu), "
++         "unaccounted %lld; the state tracker found state to update on %llu of them\n",
++         (unsigned long long)gl_draws,
++         (unsigned long long)all,
++         (unsigned long long)entry,
++         (unsigned long long)prepare,
++         (unsigned long long)st_prep,
++         (unsigned long long)bounds,
++         (unsigned long long)(prepare - st_prep - bounds),
++         (unsigned long long)cso,
++         (unsigned long long)driver,
++         (long long)rest,
++         (unsigned long long)(redwood_gl_dirty_draws - said_dirty));
++      if (n > 0)
++         (void)!write(2, line, (size_t)n);
++      memcpy(said_gl, redwood_gl_ns, sizeof(said_gl));
++      said_gl_draws = redwood_gl_draws;
++      said_dirty = redwood_gl_dirty_draws;
++   }
++
+    said_submit_ns = redwood_pan_submit_ns;
+    said_submits = redwood_pan_submits;
++   said_tex_add_ns = redwood_tex_add_ns;
++   said_tex_acc_ns = redwood_tex_acc_ns;
++   said_tex_acc_submits = redwood_tex_acc_submits;
++   said_bo_adds = redwood_bo_adds;
++   said_bo_grows = redwood_bo_grows;
++   redwood_bo_handle_max = 0;
+    redwood_prof_draws = 0;
+    memset(redwood_prof_ns, 0, sizeof(redwood_prof_ns));
+ }
+@@ -1872,8 +1933,13 @@
+       return 0;
+ 
+ #if PAN_ARCH >= 6
++   /* Redwood: 10 us a draw in the fragment shader's textures (run 29, 2 views mostly), which is more
++    * than the work of describing two pictures looks like: split into the room for the descriptors,
++    * the views (and the buffers behind them), and the batch's list. */
++   int64_t prof_began = redwood_prof_on() ? os_time_get_nano() : 0;
+    struct panfrost_ptr T =
+       pan_pool_alloc_desc_array(&batch->pool.base, alloc_count, TEXTURE);
++   RPROF_END(PROF_TEXALLOC);
+ 
+    if (!T.cpu)
+       return 0;
+@@ -1893,9 +1959,11 @@
+ 
+       panfrost_update_sampler_view(view, &ctx->base);
+       out[i] = view->bifrost_descriptor;
++      RPROF_END(PROF_TEXVIEW);
+ 
+       panfrost_batch_read_rsrc(batch, rsrc, stage);
+       panfrost_batch_add_bo(batch, view->state.bo, stage);
++      RPROF_END(PROF_TEXACCESS);
+    }
+ 
+    for (int i = actual_count; i < needed_count; ++i)
+--- a/src/mesa/main/draw.c
++++ b/src/mesa/main/draw.c
+@@ -47,6 +47,45 @@
+ #include "cso_cache/cso_context.h"
+ #include "state_tracker/st_context.h"
+ #include "state_tracker/st_draw.h"
++#include "util/os_time.h"
++
++/*
++ * Redwood: the part of a glDrawElements the driver never sees. A frame of the window server takes
++ * 37 us a draw in glprof (userland/src/eagl.c) and 22 of them inside panfrost_draw_vbo (run 36):
++ * 15 us a draw are spent above the driver, 1.2 ms of the 2.9 ms a frame spends in its drawing.
++ * Four parts, said every 6000 draws when the environment has PANPROF (pan_cmdstream.c,
++ * redwood_prof_say):
++ *
++ *   [0] entry     FLUSH_FOR_DRAW, _mesa_update_state and the validation, before the draw is made
++ *   [1] prepare   st_prepare_draw and the index bounds, inside _mesa_validated_drawrangeelements
++ *   [2] cso       cso_draw_vbo: the state tracker's own state and the driver's call (the driver's
++ *                 own line, "redwood draw", says that call)
++ *   [3] all       from the entry of glDrawElementsBaseVertex to its return
++ *   [4]  ... of prepare, st_prepare_draw (st_validate_state above all)
++ *   [5]  ... of prepare, validate_index_bounds
++ *
++ * all - cso - entry is what _mesa_validated_drawrangeelements spent before the state tracker, and
++ * cso - the driver's own time is the state tracker's share.
++ */
++uint64_t redwood_gl_ns[6];
++uint64_t redwood_gl_draws;
++uint32_t redwood_gl_dirty_draws;        /* draws on which the state tracker found state to update */
++static int redwood_gl_prof = -1;
++
++int
++redwood_gl_prof_on(void)
++{
++   if (redwood_gl_prof < 0)
++      redwood_gl_prof = getenv("PANPROF") != NULL;
++   return redwood_gl_prof;
++}
++
++/* the part before the draw is handed to the state tracker ([1] of those above) */
++#define REDWOOD_GL_PREPARED(began)                                             \
++   do {                                                                        \
++      if (began)                                                               \
++         redwood_gl_ns[1] += (uint64_t)(os_time_get_nano() - (began));         \
++   } while (0)
+ #include "util/u_draw.h"
+ #include "util/u_threaded_context.h"
+ 
+@@ -1588,6 +1627,8 @@
+    if (!count || !numInstances)
+       return;
+ 
++   int64_t rgl_began = redwood_gl_prof_on() ? os_time_get_nano() : 0;
++
+    if (!index_bounds_valid) {
+       assert(start == 0u);
+       assert(end == ~0u);
+@@ -1657,6 +1698,7 @@
+       /* u_threaded_context stores start/count in min/max_index for single draws. */
+       draw->info.min_index = (uintptr_t)indices >> index_size_shift;
+       draw->info.max_index = count;
++      REDWOOD_GL_PREPARED(rgl_began);            /* (the draw is handed to u_threaded_context here) */
+       draw->index_bias = basevertex;
+       return;
+    }
+@@ -1699,9 +1741,17 @@
+    info.max_index = end;
+    draw.count = count;
+ 
+-   if (!validate_index_bounds(ctx, &info, &draw, 1))
++   int64_t rgl_bounds = rgl_began ? os_time_get_nano() : 0;
++   bool rgl_ok = validate_index_bounds(ctx, &info, &draw, 1);
++
++   if (rgl_bounds) {
++      redwood_gl_ns[5] += (uint64_t)(os_time_get_nano() - rgl_bounds);   /* [5] index bounds */
++      rgl_bounds = 0;
++   }
++   if (!rgl_ok)
+       return;
+ 
++   REDWOOD_GL_PREPARED(rgl_began);
+    ctx->Driver.DrawGallium(ctx, &info, ctx->DrawID, NULL, &draw, 1);
+ 
+    if (MESA_DEBUG_FLAGS & DEBUG_ALWAYS_FLUSH) {
+@@ -1834,6 +1884,9 @@
+                              const GLvoid * indices, GLint basevertex)
+ {
+    GET_CURRENT_CONTEXT(ctx);
++   int64_t rgl_began = redwood_gl_prof_on() ? os_time_get_nano() : 0;
++   int64_t rgl_mark = rgl_began;
++
+    FLUSH_FOR_DRAW(ctx);
+ 
+    _mesa_set_varying_vp_inputs(ctx, ctx->VertexProgram._VPModeInputFilter &
+@@ -1845,9 +1898,19 @@
+        !_mesa_validate_DrawElements(ctx, mode, count, type))
+       return;
+ 
++   if (rgl_began) {
++      rgl_mark = os_time_get_nano();
++      redwood_gl_ns[0] += (uint64_t)(rgl_mark - rgl_began);              /* [0] entry */
++   }
++
+    _mesa_validated_drawrangeelements(ctx, ctx->Array.VAO->IndexBufferObj,
+                                      mode, false, 0, ~0,
+                                      count, type, indices, basevertex, 1, 0);
++
++   if (rgl_began) {
++      redwood_gl_ns[3] += (uint64_t)(os_time_get_nano() - rgl_mark);     /* [3] all */
++      redwood_gl_draws++;
++   }
+ }
+ 
+ 
+--- a/src/mesa/state_tracker/st_draw.c
++++ b/src/mesa/state_tracker/st_draw.c
+@@ -42,6 +42,12 @@
+ #include "main/bufferobj.h"
+ #include "main/macros.h"
+ #include "main/varray.h"
++#include "util/os_time.h"
++
++/* Redwood: the state tracker's share of a draw (src/mesa/main/draw.c says what the four parts are) */
++extern uint64_t redwood_gl_ns[6];
++extern uint32_t redwood_gl_dirty_draws;
++extern int redwood_gl_prof_on(void);
+ 
+ #include "vbo/vbo.h"
+ 
+@@ -75,6 +81,7 @@
+ st_prepare_draw(struct gl_context *ctx, uint64_t state_mask)
+ {
+    struct st_context *st = ctx->st;
++   int64_t began = redwood_gl_prof_on() ? os_time_get_nano() : 0;
+ 
+    /* Mesa core state should have been validated already */
+    assert(ctx->NewState == 0x0);
+@@ -85,6 +92,8 @@
+    st_invalidate_readpix_cache(st);
+ 
+    /* Validate state. */
++   if (ctx->NewDriverState & st->active_states & state_mask)
++      redwood_gl_dirty_draws++;           /* (the state tracker has something to update: st_util.h) */
+    st_validate_state(st, state_mask);
+ 
+    /* Apply our thread scheduling policy for better multithreading
+@@ -107,6 +116,9 @@
+          }
+       }
+    }
++
++   if (began)
++      redwood_gl_ns[4] += (uint64_t)(os_time_get_nano() - began);      /* [4] st_prepare_draw */
+ }
+ 
+ void
+@@ -118,8 +130,11 @@
+                 unsigned num_draws)
+ {
+    struct st_context *st = st_context(ctx);
++   int64_t began = redwood_gl_prof_on() ? os_time_get_nano() : 0;
+ 
+    cso_draw_vbo(st->cso_context, info, drawid_offset, indirect, draws, num_draws);
++   if (began)
++      redwood_gl_ns[2] += (uint64_t)(os_time_get_nano() - began);      /* [2] cso */
+ }
+ 
+ static void

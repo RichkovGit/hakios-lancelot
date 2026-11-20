@@ -1,0 +1,222 @@
+Redwood: what a draw costs the processor, in its parts, said every 6000 draws.
+
+A frame of the window server makes 60 to 130 draws of four triangles each and spends 5 to
+20 ms in them (run 21, boot-arg glprof=1: 48 us a draw, 11 of them the kernel's), while
+the GPU is idle. Inside panfrost a draw costs 20 to 31 us, and two thirds of that is the
+state it emits -- mostly the textures' descriptors, which a draw that binds its own texture
+makes again each time (run 22). On when the program has PANPROF in its environment (the
+window server gets it from boot-arg glenv=PANPROF=1, see userland/src/eagl.c).
+
+--- a/src/gallium/drivers/panfrost/pan_cmdstream.c
++++ b/src/gallium/drivers/panfrost/pan_cmdstream.c
+@@ -58,6 +58,86 @@
+ #include "pan_texture.h"
+ #include "pan_util.h"
+ 
++/*
++ * Redwood: what a draw costs the processor, in six parts, said every 6000 draws. A frame of the
++ * window server makes 60 to 130 draws of four triangles each and spends 5 to 20 ms in them (run 21,
++ * boot-arg glprof=1: 48 us a draw, and the kernel's part of it 11 us), while the GPU is idle: this
++ * says where in the driver the rest is. On when the program's environment has PANPROF (the
++ * window server gets it from boot-arg glenv=PANPROF=1, see userland/src/eagl.c).
++ */
++#include "util/os_time.h"
++#include <stdlib.h>
++#include <unistd.h>
++enum {
++   PROF_PREPARE,        /* prepare_draw: the batch for this framebuffer, its viewport */
++   PROF_VERTEX,         /* panfrost_draw_get_vertex_count: vertex and index buffers made ready */
++   PROF_STATE,          /* panfrost_update_state_3d, the shader states, clean_state_3d */
++   PROF_TEXDESC,        /* ... of that, the textures' descriptors made (a draw's own state, mostly) */
++   PROF_SAMPLER,        /* ... and the samplers' */
++   PROF_RSD,            /* ... and the fragment shader's renderer state descriptor */
++   PROF_CONST,          /* ... and the uniforms */
++   PROF_CLEAN,          /* ... and panfrost_clean_state_3d */
++   PROF_VARYING,        /* panfrost_emit_varying_descriptor */
++   PROF_LAUNCH,         /* JOBX(launch_draw): the descriptors and the job chain */
++   PROF_DRAW,           /* the whole of panfrost_draw_vbo */
++   PROF_AREAS
++};
++static uint64_t redwood_prof_ns[PROF_AREAS], redwood_prof_draws;
++static int redwood_prof = -1;
++static int
++redwood_prof_on(void)
++{
++   if (redwood_prof < 0)
++      redwood_prof = getenv("PANPROF") != NULL;
++   return redwood_prof;
++}
++
++/* the end of one part of a draw, in a function that began with `prof_began` */
++#define RPROF_END(area)                                                        \
++   do {                                                                        \
++      if (prof_began) {                                                        \
++         int64_t rprof_now = os_time_get_nano();                               \
++         redwood_prof_ns[area] += (uint64_t)(rprof_now - prof_began);          \
++         prof_began = rprof_now;                                               \
++      }                                                                        \
++   } while (0)
++
++/* "redwood draw: 6000 draws, 48 us a draw (prepare 1, vertex buffers 8, state 5, varying 1, launch 32)" */
++static void
++redwood_prof_say(void)
++{
++   extern uint64_t redwood_pan_submit_ns, redwood_pan_submits;
++   static uint64_t said_submit_ns, said_submits;
++   uint64_t draws = redwood_prof_draws ? redwood_prof_draws : 1;
++   char line[768];
++   int n;
++
++   n = snprintf(line, sizeof(line),
++      "redwood draw: %llu draws, %llu us a draw (prepare %llu, vertex buffers %llu, state %llu: textures %llu, "
++      "samplers %llu, renderer state %llu, uniforms %llu, clean %llu; varying %llu, launch %llu); "
++      "%llu batches submitted in them, %llu us a draw\n",
++      (unsigned long long)redwood_prof_draws,
++      (unsigned long long)(redwood_prof_ns[PROF_DRAW] / 1000 / draws),
++      (unsigned long long)(redwood_prof_ns[PROF_PREPARE] / 1000 / draws),
++      (unsigned long long)(redwood_prof_ns[PROF_VERTEX] / 1000 / draws),
++      (unsigned long long)(redwood_prof_ns[PROF_STATE] / 1000 / draws),
++      (unsigned long long)(redwood_prof_ns[PROF_TEXDESC] / 1000 / draws),
++      (unsigned long long)(redwood_prof_ns[PROF_SAMPLER] / 1000 / draws),
++      (unsigned long long)(redwood_prof_ns[PROF_RSD] / 1000 / draws),
++      (unsigned long long)(redwood_prof_ns[PROF_CONST] / 1000 / draws),
++      (unsigned long long)(redwood_prof_ns[PROF_CLEAN] / 1000 / draws),
++      (unsigned long long)(redwood_prof_ns[PROF_VARYING] / 1000 / draws),
++      (unsigned long long)(redwood_prof_ns[PROF_LAUNCH] / 1000 / draws),
++      (unsigned long long)(redwood_pan_submits - said_submits),
++      (unsigned long long)((redwood_pan_submit_ns - said_submit_ns) / 1000 / draws));
++   if (n > 0)
++      (void)!write(2, line, (size_t)n);
++   said_submit_ns = redwood_pan_submit_ns;
++   said_submits = redwood_pan_submits;
++   redwood_prof_draws = 0;
++   memset(redwood_prof_ns, 0, sizeof(redwood_prof_ns));
++}
++
+ /* JOBX() is used to select the job backend helpers to call from generic
+  * functions. */
+ #if PAN_ARCH <= 9
+@@ -2825,14 +2905,17 @@
+    bool frag = (st == PIPE_SHADER_FRAGMENT);
+    unsigned dirty_3d = ctx->dirty;
+    unsigned dirty = ctx->dirty_shader[st];
++   int64_t prof_began = redwood_prof_on() ? os_time_get_nano() : 0;
+ 
+    if (dirty & (PAN_DIRTY_STAGE_TEXTURE | PAN_DIRTY_STAGE_SHADER)) {
+       batch->textures[st] = panfrost_emit_texture_descriptors(batch, st);
+    }
++   RPROF_END(PROF_TEXDESC);
+ 
+    if (dirty & PAN_DIRTY_STAGE_SAMPLER) {
+       batch->samplers[st] = panfrost_emit_sampler_descriptors(batch, st);
+    }
++   RPROF_END(PROF_SAMPLER);
+ 
+    /* On Bifrost and older, the fragment shader descriptor is fused
+     * together with the renderer state; the combined renderer state
+@@ -2858,6 +2941,7 @@
+          batch, st, &batch->nr_uniform_buffers[st], &batch->push_uniforms[st],
+          &batch->nr_push_uniforms[st]);
+    }
++   RPROF_END(PROF_CONST);
+ 
+ #if PAN_ARCH <= 7
+    /* On Bifrost and older, if the fragment shader changes OR any renderer
+@@ -2869,6 +2953,7 @@
+ 
+       batch->rsd[st] = panfrost_emit_frag_shader_meta(batch);
+    }
++   RPROF_END(PROF_RSD);
+ 
+    /* Vertex shaders need to mix vertex data and image descriptors in the
+     * attribute array. This is taken care of in panfrost_update_state_3d().
+@@ -3095,16 +3180,35 @@
+ 
+    struct panfrost_compiled_shader *vs = ctx->prog[PIPE_SHADER_VERTEX];
+    bool idvs = vs->info.vs.idvs;
++   int64_t prof_began = redwood_prof_on() ? os_time_get_nano() : 0;
+ 
+    UNUSED unsigned vertex_count =
+       panfrost_draw_get_vertex_count(batch, info, draw, idvs);
++   if (prof_began) {
++      int64_t now = os_time_get_nano();
++
++      redwood_prof_ns[PROF_VERTEX] += (uint64_t)(now - prof_began);
++      prof_began = now;
++   }
+ 
+    panfrost_statistics_record(ctx, info, draw);
+ 
+    panfrost_update_state_3d(batch);
+    panfrost_update_shader_state(batch, PIPE_SHADER_VERTEX);
+    panfrost_update_shader_state(batch, PIPE_SHADER_FRAGMENT);
++   if (prof_began) {
++      int64_t now = os_time_get_nano();
++
++      redwood_prof_ns[PROF_STATE] += (uint64_t)(now - prof_began);
++      prof_began = now;
++   }
+    panfrost_clean_state_3d(ctx);
++   if (prof_began) {
++      int64_t now = os_time_get_nano();
++
++      redwood_prof_ns[PROF_CLEAN] += (uint64_t)(now - prof_began);
++      prof_began = now;
++   }
+ 
+    if (ctx->uncompiled[PIPE_SHADER_VERTEX]->xfb) {
+       panfrost_launch_xfb(batch, info, draw->count);
+@@ -3124,10 +3228,21 @@
+    panfrost_emit_varying_descriptor(batch,
+                                     ctx->padded_count * ctx->instance_count,
+                                     info->mode == MESA_PRIM_POINTS);
++   if (prof_began) {
++      int64_t now = os_time_get_nano();
++
++      redwood_prof_ns[PROF_VARYING] += (uint64_t)(now - prof_began);
++      prof_began = now;
++   }
+ #endif
+ 
+    JOBX(launch_draw)(batch, info, drawid_offset, draw, vertex_count);
+    batch->draw_count++;
++   if (prof_began) {
++      int64_t now = os_time_get_nano();
++
++      redwood_prof_ns[PROF_LAUNCH] += (uint64_t)(now - prof_began);
++   }
+ }
+ 
+ static bool
+@@ -3272,7 +3387,11 @@
+                            unsigned num_draws)
+ {
+    struct panfrost_context *ctx = pan_context(pipe);
++   int64_t prof_began = redwood_prof_on() ? os_time_get_nano() : 0;
+    struct panfrost_batch *batch = prepare_draw(pipe, info);
++   if (prof_began) {
++      redwood_prof_ns[PROF_PREPARE] += (uint64_t)(os_time_get_nano() - prof_began);
++   }
+    if (!batch) {
+       mesa_loge("prepare_draw failed");
+       return;
+@@ -3299,6 +3418,7 @@
+                   unsigned num_draws)
+ {
+    struct panfrost_context *ctx = pan_context(pipe);
++   int64_t prof_began = redwood_prof_on() ? os_time_get_nano() : 0;
+ 
+    if (!panfrost_render_condition_check(ctx))
+       return;
+@@ -3311,6 +3431,11 @@
+    } else {
+       panfrost_multi_draw_direct(pipe, info, drawid_offset, draws, num_draws);
+    }
++   if (prof_began) {
++      redwood_prof_ns[PROF_DRAW] += (uint64_t)(os_time_get_nano() - prof_began);
++      if (++redwood_prof_draws >= 6000)
++         redwood_prof_say();
++   }
+ }
+ 
+ /* Launch grid is the compute equivalent of draw_vbo, so in this routine, we

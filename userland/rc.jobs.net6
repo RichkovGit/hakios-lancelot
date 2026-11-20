@@ -1,0 +1,9 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net6, WIFID=1, connsys_step=17: whether the job runner's bootstrap port reaches the
+# system session (notifyd and fseventsd are running there), and which LaunchDaemons directory launchd
+# is looking at. Run 74: user-session services answered, system ones answered BOOTSTRAP_UNKNOWN_SERVICE,
+# and none of the eight jobs WIFID=1 adds (wifid, configd, mDNSResponder...) was running.
+/redwood/bin/net_test wait 30
+/redwood/bin/net_test me dir /System/Library/LaunchDaemons dir /redwood/LaunchDaemons
+/redwood/bin/net_test lookup com.apple.system.notification_center lookup com.apple.FSEvents lookup com.apple.logd lookup com.apple.trustd lookup com.apple.SystemConfiguration.configd lookup com.apple.private.corewifi-xpc
+/redwood/bin/net_test procs wifid procs configd procs mDNSResponder

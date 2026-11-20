@@ -1,0 +1,7 @@
+# Redmi 9 battery regression. Boot with mtkbatt=2 and keep USB connected.
+# The Android-side reference is obtained with adb shell dumpsys battery.
+# Use a single IOPS reader and print near the end so the console retains it.
+/redwood/bin/net_test wait 55
+/redwood/bin/battery_test watch 10
+/redwood/bin/battery_test 1
+/redwood/bin/net_test end

@@ -1,0 +1,22 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net21, WIFID=1, connsys_step=17, XNU_SECS=90, and the boot args add connsys_bt=2:
+# Bluetooth's function on the same CONNAC, and the controller behind it.
+#
+# redwood_connsys.c's step 20 (connsys_bt_start) sends WMT_FUNC_CTRL (BT on) and then six HCI commands
+# on STP channel 0 -- reset, local version, BD_ADDR, features, buffer sizes, LE buffer sizes -- and
+# says how many the controller answered as a controller does. With connsys_bt=2 and all six it waits
+# for the IOKit node bluetoothd looks for (RedwoodBluetoothNode) and bt_bridge() puts up the serial
+# ports (cu.bluetooth, uart.bluetooth) and the com.apple.uart.sk.bluetooth control.
+#
+# So this run only asks: does the CONNAC's Bluetooth answer, does iOS's side see it (the registry
+# node, the /dev entries), and does bluetoothd start.
+/redwood/bin/net_test wait 22
+/redwood/bin/net_test dir /dev
+/redwood/bin/net_test procs bluetooth
+/redwood/bin/net_test procs BlueTool
+/redwood/bin/net_test lookup com.apple.server.bluetooth
+/redwood/bin/net_test lookup com.apple.bluetooth.xpc
+/redwood/bin/net_test wait 15
+/redwood/bin/net_test procs bluetooth
+/redwood/bin/net_test dir /dev
+/redwood/bin/net_test end

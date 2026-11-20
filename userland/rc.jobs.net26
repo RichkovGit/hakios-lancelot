@@ -1,0 +1,22 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net26, REST=1 (with WIFID=1), MORE_JOBS="com.apple.bluetoothd com.apple.BlueTool",
+# NILINJECT=Preferences, connsys_step=17, XNU_SECS=150, applog=1 applog_name=Preferences.
+#
+# What run 94 (logs/lancelot-connsys46.log) said: the dictionary that killed Settings is a settings
+# row -- keys label, cell, bundle, iconImage, isController, id, restrictByID -- and iconImage is nil:
+# a pane's icon that its own bundle does not carry where iOS 16 looks for it. With that pair left out,
+# Settings opens and stays 8.8 s, then dies without a word (the kernel only says "Corpse allowed 1 of
+# 5", and no line of the program's standard error comes before it).
+#
+# So the same library now catches the signals too (SIGTRAP, SIGABRT, SIGILL, SIGSEGV, SIGBUS, SIGSYS),
+# says which one, with its address, and names every frame as image + offset through dladdr -- that way
+# the private frameworks that are not in the shared cache (the frames of run 94 at 0x23c1d1f78, above
+# the cache's 0x200000000) get a name as well. "end" on the watchdie line keeps the tail.
+/redwood/bin/net_test wait 22
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test fbwait 60
+/redwood/bin/net_test wait 16
+/redwood/bin/rwtouch swipe 0.5 0.985 0.5 0.3 200
+/redwood/bin/net_test wait 3
+/redwood/bin/rwtouch tap 0.543 0.712
+/redwood/bin/net_test watchdie Preferences 30 end

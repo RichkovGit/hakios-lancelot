@@ -1,0 +1,10 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net10, WIFID=1, connsys_step=17, XNU_SECS=74: two pictures of Settings -- the list,
+# and the Wi-Fi pane. (Run 78 had the same list with the waits the job starts with too long: the
+# kernel's time ran out at 68 s before fbgrab could say anything, and no fbjpg line was in the log.
+# The job starts at ~15 s, so 25 + 5 + 14 puts the first picture at ~59 s.) fbgrab has to be the last
+# thing a run does: its JPEG goes to the console in base64, and the log keeps the last ~261 KB.
+/redwood/bin/rwtouch wait 25 swipe 0.5 0.985 0.5 0.3 200 wait 5 tap 0.615 0.71 wait 14
+/redwood/bin/fbgrab -log settings
+/redwood/bin/rwtouch tap 0.5 0.245 wait 6
+/redwood/bin/fbgrab -log wifi

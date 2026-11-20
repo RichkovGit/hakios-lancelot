@@ -1,0 +1,10 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# The phone's own radio (RC_JOBS=rc.jobs.net3, image built with WIFID=1, boot-arg
+# connsys_step=17): the kernel joins the network of fw/network at about 22 s; this waits until
+# near the end of the run (the console keeps only its head and its last ~50 s), then asks the
+# interface as the kernel has it, what configd has in its store, configures it by DHCP through
+# configd's IPConfiguration, and waits for an address. (rc.jobs.net2 is the same test earlier;
+# rc.jobs.net is the one on QEMU's en0.)
+/redwood/bin/net_test wait 92 show store dhcp en0 waitaddr en0 5 store
+/redwood/bin/net_test resolve example.com tcp example.com 80 reach example.com
+/redwood/bin/net_test fetch http://example.com/

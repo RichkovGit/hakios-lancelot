@@ -1,0 +1,24 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net27, REST=1 (with WIFID=1), MORE_JOBS="com.apple.bluetoothd com.apple.BlueTool",
+# NILINJECT=Preferences, connsys_step=17, XNU_SECS=165, applog=1 applog_name=Preferences.
+#
+# Run 94 (logs/lancelot-connsys46.log): the hook let Settings live, and it died 8.8 s later without a
+# word (nothing on its standard error; the kernel said only "Corpse allowed 1 of 5"). Run 95
+# (logs/lancelot-connsys47.log) was to catch that signal -- and the tap did not open it at all ("it did
+# not appear in 30.0 s"), so nothing was learned. Hence two taps 4 s apart (if the first one opened it,
+# the second lands inside it), and a picture at the very end: if it still does not appear, the picture
+# says what the screen was; if it appears and stays, the picture says what Settings shows; and if it
+# dies, the signal and its frames are the last thing before "end".
+/redwood/bin/net_test wait 22
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test fbwait 60
+/redwood/bin/net_test wait 16
+/redwood/bin/rwtouch swipe 0.5 0.985 0.5 0.3 200
+/redwood/bin/net_test wait 3
+/redwood/bin/rwtouch tap 0.543 0.712
+/redwood/bin/net_test wait 4
+/redwood/bin/rwtouch tap 0.543 0.712
+/redwood/bin/net_test watchdie Preferences 30
+/redwood/bin/net_test procs Preferences
+/redwood/bin/fbgrab -log settings 300 0.5
+/redwood/bin/net_test end

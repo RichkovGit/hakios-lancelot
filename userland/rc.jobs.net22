@@ -1,0 +1,40 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net22, WIFID=1 REST=1 MORE_JOBS="com.apple.bluetoothd com.apple.BlueTool",
+# connsys_step=17 connsys_bt=2, XNU_SECS=130: the rest of iOS's jobs on demand (so the daemons
+# Preferences asks for are there), Bluetooth's own daemon, and Settings opened by a finger.
+#
+# Run 88 (logs/lancelot-connsys38.log) got the reason Preferences aborts:
+#   *** Terminating app due to uncaught exception 'NSInvalidArgumentException', reason:
+#   '*** -[__NSPlaceholderDictionary initWithObjects:forKeys:count:]: attempt to insert nil object
+#   from objects[3]'
+# a second after it opened, while three of its neighbours were missing: accountsd.accountmanager,
+# nehelper and corefollowup.agent all failed lookup with error 3 (No such process) because the small
+# image only loads the jobs in IOS_JOBS -- mkjobs.py --rest leaves out the rest, and those three were
+# not in it. (nehelper is an on-demand job of the system image, accountsd's Mach service is its own,
+# followupd's is corefollowup.agent.) That is the first thing to rule out.
+#
+# Bluetooth: run 89 (logs/lancelot-connsys39.log) got the controller itself -- WMT's function on,
+# then six HCI commands answered as a controller answers (reset, local version, BD_ADDR, features,
+# buffer sizes, LE buffer sizes), the "bluetooth" registry node, /dev/cu.bluetooth and
+# /dev/uart.bluetooth, the com.apple.uart.sk.bluetooth kernel control and the Skywalk pipe. What was
+# missing was bluetoothd: mkjobs.py's DENY has "bluetooth" in it, so its job was not in the image.
+/redwood/bin/net_test wait 22
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test lookup com.apple.accountsd.accountmanager
+/redwood/bin/net_test lookup com.apple.nehelper
+/redwood/bin/net_test lookup com.apple.corefollowup.agent
+/redwood/bin/net_test lookup com.apple.server.bluetooth
+/redwood/bin/net_test procs accountsd
+/redwood/bin/net_test procs nehelper
+/redwood/bin/net_test procs followupd
+/redwood/bin/net_test procs bluetooth
+/redwood/bin/net_test fbwait 60
+/redwood/bin/net_test wait 16
+/redwood/bin/rwtouch swipe 0.5 0.985 0.5 0.3 200
+/redwood/bin/net_test wait 3
+/redwood/bin/rwtouch tap 0.875 0.71
+/redwood/bin/net_test wait 10
+/redwood/bin/net_test procs Preferences
+/redwood/bin/net_test procs bluetooth
+/redwood/bin/fbgrab -log settings 300 0.4
+/redwood/bin/net_test end

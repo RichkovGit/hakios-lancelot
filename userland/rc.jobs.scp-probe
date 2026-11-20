@@ -1,0 +1,3 @@
+# SCP accelerometer full bring-up (scp_step=7): start the hub, enable accel 50 Hz, FIFO, samples.
+/redwood/bin/net_test wait 50
+/redwood/bin/net_test end

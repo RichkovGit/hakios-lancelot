@@ -1,0 +1,24 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net28, REST=1 (with WIFID=1), MORE_JOBS="com.apple.bluetoothd com.apple.BlueTool",
+# NILINJECT=Preferences CIINJECT=Preferences, connsys_step=17, XNU_SECS=150,
+# applog=1 applog_name=Preferences.
+#
+# Run 96 (logs/lancelot-connsys48.log): Settings opened, the nil dictionary was built without its
+# iconImage pair, and half a second later MobileIcons' icon rendering took the program down in
+# +[CIContext contextWithOptions:] -- CoreImage's OpenGL ES back end with no EAGLContext (docs/metal.md,
+# section 7). libredwood-ci.dylib now answers that request with a context over our OpenGL ES, and
+# libredwood-gl.dylib goes into the process with it (build.sh, CIINJECT).
+#
+# One tap, then time to render the whole root list, then the picture: if the icons are drawn, the list
+# is there and the next run can tap the Wi-Fi row; if something else dies, the console tail has it.
+/redwood/bin/net_test wait 22
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test fbwait 60
+/redwood/bin/net_test wait 16
+/redwood/bin/rwtouch swipe 0.5 0.985 0.5 0.3 200
+/redwood/bin/net_test wait 3
+/redwood/bin/rwtouch tap 0.543 0.712
+/redwood/bin/net_test wait 8
+/redwood/bin/net_test procs Preferences
+/redwood/bin/fbgrab -log settings 300 0.5
+/redwood/bin/net_test end

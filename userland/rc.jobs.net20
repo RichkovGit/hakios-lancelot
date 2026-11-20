@@ -1,0 +1,23 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net20, WIFID=1, connsys_step=17, XNU_SECS=150, and the boot args also carry
+# applog=1 applog_name=Preferences: the reason Preferences aborts.
+#
+# Run 84 (rc.jobs.net16) tapped 0.875 0.71, launchd started Preferences (pid 87), and about a second
+# later the kernel said "userabort: Preferences[87] aborts ... called from: <libc++abi, libobjc,
+# CoreFoundation, GraphicsServices, UIKitCore>". The text of the abort -- the uncaught exception's
+# name and reason -- goes to the program's standard error, which launchd points at /dev/null; boot-arg
+# applog=1 puts the standard error of the named program on the console instead (bsd/kern/kern_exec.c,
+# exec_applog_path). The console the host gets keeps only its last ~261 KB, which the widgets fill in
+# one or two seconds, so the run has to end at the death itself: net_test's "watchdie" waits for
+# Preferences to appear and to go, and "end" (kern.redwood.end) is in the same command line.
+#
+# The timings before the tap are run 84's, which did open it: the first swap (~81 s), 16 s for the
+# first real frame, the lock screen swiped away.
+/redwood/bin/net_test wait 22
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test fbwait 60
+/redwood/bin/net_test wait 16
+/redwood/bin/rwtouch swipe 0.5 0.985 0.5 0.3 200
+/redwood/bin/net_test wait 3
+/redwood/bin/rwtouch tap 0.875 0.71
+/redwood/bin/net_test watchdie Preferences 30 end

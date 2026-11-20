@@ -1,0 +1,34 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net19, WIFID=1, connsys_step=17, XNU_SECS=130: the radio's power, and traffic with it
+# gone and back, with wifid given back afterwards.
+#
+# Run 86 (rc.jobs.net18) showed the off half in the kernel's own words -- "the link is down", "the
+# station says: power, 0", no address on en0, reach NOT reachable, the fetch timed out -- and the on
+# half as far as the radio goes: "joining", "authentication accepted", "association accepted", "EAPOL
+# ... the keys go in", "the link is up" in 237 ms. What did not come back was the address: with wifid
+# still frozen, configd's IPConfiguration said "done" but sent no DHCP packet at all.
+#
+# This run gives wifid back before expecting the address (it is what iOS's Wi-Fi side, and apparently
+# the service behind configd, waits for). It also asks whether the address returns by itself ("waitaddr"
+# straight after the join) before asking for it.
+#
+# The kernel now clears IFF_RUNNING when the link goes down, so "show" should say "up" and not "up
+# running" while the radio is off.
+/redwood/bin/net_test wait 22
+/redwood/bin/net_test dhcp en0 waitaddr en0 15
+/redwood/bin/net_test show
+/redwood/bin/net_test fetch https://example.com/ 20
+/redwood/bin/net_test stop wifid
+/redwood/bin/net_test radio off
+/redwood/bin/net_test wait 3
+/redwood/bin/net_test show
+/redwood/bin/net_test reach example.com
+/redwood/bin/net_test fetch http://example.com/ 8
+/redwood/bin/net_test radio on
+/redwood/bin/net_test cont wifid
+/redwood/bin/net_test wait 5
+/redwood/bin/net_test waitaddr en0 10
+/redwood/bin/net_test show
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test fetch https://example.com/ 30
+/redwood/bin/net_test end

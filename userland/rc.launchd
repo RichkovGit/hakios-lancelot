@@ -1,0 +1,16 @@
+# Experiment: hand process 1 over to the real iOS launchd.
+#
+# The job list of a measured run (etc/rc.jobs, tools/frames.py) is started by launchd itself, as the
+# job com.redwood.demo (com.redwood.demo.plist, RunAtLoad): on lancelot's user domain it does run now
+# (the log has "(user/501/com.redwood.demo [16]) ... exited due to exit(0)"). This file used to start
+# the list a second time through rc.start -- an earlier note said launchd keeps our jobs "pending
+# spawn, domain in on-demand-only mode" and never starts one (logs/lancelot-glfps1.log, -glfps3.log),
+# and that was true then -- so from run 40 the same commands ran twice at once: in
+# logs/lancelot-port2.log process 6 (this file's rc.start) and process 16 (launchd) each ran
+# battery_test and fbgrab, and of the two libIOPS clients one always got nothing from powerd.
+#
+# One list, the launchd one, is what runs now (run 48 on). If launchd ever stops starting it, the way
+# back is the line this file no longer has:
+#     /redwood/sbin/init /redwood/etc/rc.start &
+# (etc/rc.start is still in the image for that.)
+exec /sbin/launchd.ios

@@ -1,0 +1,22 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net17, WIFID=1, connsys_step=17, XNU_SECS=130: the picture of Settings' list.
+# Run 84 (rc.jobs.net16, logs/lancelot-connsys34.log) proved the ending: kern.redwood.end stopped the
+# run at 112.92 s, a second after fbgrab's last line, and the whole JPEG (167 lines) is in the log --
+# where before it was pushed out of the console's last 261 KB by the widget storm. Its picture shows
+# the tap missed: 0.875 is right of the Settings icon, whose tile spans about 0.70-0.79 of the screen
+# (the home screen's fourth column: icon centers ~0.178 0.368 0.558 0.748) and rows at ~0.30, 0.42,
+# 0.54, 0.72. So: 0.74 0.72.
+#
+# One picture per run (the next one -- the Wi-Fi pane -- is a run of its own), 15 s for Settings to come
+# up the first time, then the run ends on the same second. XNU_SECS=130 is the fallback only.
+/redwood/bin/net_test wait 22
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test fetch http://example.com/ 20
+/redwood/bin/net_test fbwait 60
+/redwood/bin/net_test wait 16
+/redwood/bin/rwtouch swipe 0.5 0.985 0.5 0.3 200
+/redwood/bin/net_test wait 3
+/redwood/bin/rwtouch tap 0.74 0.72
+/redwood/bin/net_test wait 15
+/redwood/bin/fbgrab -log settings 300 0.4
+/redwood/bin/net_test end

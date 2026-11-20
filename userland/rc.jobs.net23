@@ -1,0 +1,26 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net23, REST=1 (with WIFID=1), MORE_JOBS="com.apple.bluetoothd com.apple.BlueTool",
+# connsys_step=17 connsys_bt=2, XNU_SECS=130, applog=1 applog_name=Preferences.
+#
+# Run 90 (logs/lancelot-connsys40.log) brought the missing neighbours: with REST=1 every job of the
+# system image is in the small image (started on demand), and
+#   accountsd.accountmanager, nehelper, corefollowup.agent -- there
+# and bluetoothd (pid 21) with com.apple.server.bluetooth -- there, next to the six HCI commands the
+# CONNAC answered (connsys_bt=2). But the tap missed: 0.875 0.71 is empty space. The picture that run
+# took (0.543 0.712, see below) has the home screen's fourth row as Health, Wallet, Settings -- three
+# icons, not four -- because Maps moved up to the third row (fourth column): with the rest of the
+# jobs present the grid differs from the one run 84 tapped.
+#
+# So the tap is on the icon that is in the picture: Settings, third of the fourth row, 0.543 0.712 of
+# the 300x650 panel. "watchdie" says whether it appears and whether (and after how long) it goes, and
+# "end" in the same command line stops the run at that death, so the reason applog=1 put on the
+# console (run 88: "attempt to insert nil object from objects[3]") survives in the console's tail --
+# and if it does not die this time, the tail says "still there", which is the other answer.
+/redwood/bin/net_test wait 22
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test fbwait 60
+/redwood/bin/net_test wait 16
+/redwood/bin/rwtouch swipe 0.5 0.985 0.5 0.3 200
+/redwood/bin/net_test wait 3
+/redwood/bin/rwtouch tap 0.543 0.712
+/redwood/bin/net_test watchdie Preferences 30 end

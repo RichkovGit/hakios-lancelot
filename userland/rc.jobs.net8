@@ -1,0 +1,12 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net8, WIFID=1, connsys_step=17: HTTPS. Plain HTTP works (run 76); TLS needs
+# trustd (on demand: its plist has MachServices and no RunAtLoad), securityd and the system's
+# anchors, so this asks whether they are there and what NSURLSession makes of https://example.com/.
+# The last thing is a picture of Settings, to see what iOS makes of the network it is on.
+/redwood/bin/net_test wait 28
+/redwood/bin/net_test procs configd procs wifid procs mDNSResponder procs securityd procs trustd
+/redwood/bin/net_test lookup com.apple.trustd lookup com.apple.trustd.agent lookup com.apple.securityd lookup com.apple.ocspd lookup com.apple.SystemConfiguration.configd
+/redwood/bin/net_test dhcp en0 waitaddr en0 8
+/redwood/bin/net_test fetch http://example.com/ fetch https://example.com/ procs trustd procs securityd procs ocspd
+/redwood/bin/rwtouch wait 3 swipe 0.5 0.985 0.5 0.3 200 wait 6 tap 0.615 0.71 wait 15
+/redwood/bin/fbgrab -log settings

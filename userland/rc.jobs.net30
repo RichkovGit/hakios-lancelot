@@ -1,0 +1,36 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net30, REST=1 (with WIFID=1), MORE_JOBS="com.apple.bluetoothd com.apple.BlueTool",
+# NILINJECT=Preferences CIINJECT=Preferences, connsys_step=17, XNU_SECS=185,
+# applog=1 applog_name=Preferences.
+#
+# Run 98 (logs/lancelot-connsys50.log) is the Wi-Fi pane itself: the switch on, Cudy_OpenWrt_2.4Ghz
+# ticked, and the scan list of the neighbours, all drawn by WiFiSettings through the port's wifid, with
+# Settings alive afterwards.
+#
+# Now the switch, which is the part that was never exercised from the UI: off at (0.817, 0.177) -- the
+# coordinates of the green switch in that picture (x 245 of 300, y 115 of 650) -- then "show" and
+# configd's store to see whether the radio really went down (en0 without IFF_RUNNING, the IPv4 service
+# gone), then on again, and the address is waited for. The picture at the end is the pane after the
+# second tap: the switch back on and the network ticked again, if the port can rejoin.
+/redwood/bin/net_test wait 22
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test fbwait 60
+/redwood/bin/net_test wait 16
+/redwood/bin/rwtouch swipe 0.5 0.985 0.5 0.3 200
+/redwood/bin/net_test wait 3
+/redwood/bin/rwtouch tap 0.543 0.712
+/redwood/bin/net_test wait 6
+/redwood/bin/rwtouch tap 0.5 0.368
+/redwood/bin/net_test wait 6
+/redwood/bin/net_test show
+/redwood/bin/rwtouch tap 0.817 0.177
+/redwood/bin/net_test wait 6
+/redwood/bin/net_test show
+/redwood/bin/net_test store 'State:/Network/(Interface/en0|Global/IPv4)'
+/redwood/bin/rwtouch tap 0.817 0.177
+/redwood/bin/net_test wait 12
+/redwood/bin/net_test show
+/redwood/bin/net_test store 'State:/Network/(Interface/en0|Global/IPv4)'
+/redwood/bin/net_test waitaddr en0 15
+/redwood/bin/fbgrab -log wifiswitch 300 0.5
+/redwood/bin/net_test end

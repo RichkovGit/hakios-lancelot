@@ -1,0 +1,24 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net13, WIFID=1, connsys_step=17, XNU_SECS=70: the radio's power, as Settings'
+# Wi-Fi switch sets it (APPLE80211 SET type 19, POWER -> redwood_sta_ask_power ->
+# redwood_mtkwifi's wf_op_power). Off: wf_leave() sends the deauthentication, removes the station
+# record, takes the link down (net_link_event) and stops the station (wf_phase OFF). On: the phase
+# goes back to IDLE and redwood_sta.c's thread joins the network the kernel was given in a file
+# again -- what iOS does with the networks it knows -- so the address, the route and traffic come
+# back without anything else being asked.
+#
+# What the kernel's log should say: "apple80211: the station says: power, 0", "net: the link is
+# down", then after on "the station says: power, 1", the join's four steps, and "connsys: carried"
+# counting frames again. net_test's own steps are the same layers as in run 76: a FAILED fetch
+# while the radio is off (with 8 s, not 60), and a 200 through TLS after it is on.
+/redwood/bin/net_test wait 24
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test fetch http://example.com/ 20
+/redwood/bin/net_test radio off
+/redwood/bin/net_test reach example.com
+/redwood/bin/net_test fetch http://example.com/ 8
+/redwood/bin/net_test radio on
+/redwood/bin/net_test wait 10
+/redwood/bin/net_test show
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test fetch https://example.com/ 30

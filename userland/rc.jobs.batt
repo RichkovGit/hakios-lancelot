@@ -1,0 +1,16 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# The battery on lancelot (RC_JOBS=rc.jobs.batt, boot-arg mtkbatt=2): what powerd and IOPS say
+# (src/battery_test.c), and then a picture of the status bar: fbgrab takes the frame through
+# kern.redwood.fbgrab, keeps its top 150 rows (the status bar) and puts a small JPEG of them in the
+# log as "fbjpg status I/N:" lines, which tools/fbjpg.py puts back together. The log keeps the
+# console's last ~96 KB (run 43: a whole screen's JPEG is 97 KB and lost its header), so the picture
+# is small and the last thing said.
+# Every command line and every open of this file print the process they happen in (src/init.c):
+# runs 40 to 47 showed the same list running twice at once (rc.start and launchd); from run 48 there
+# is one copy, the one launchd starts (see rc.launchd).
+/bin/cat /etc/rc.jobs
+/redwood/bin/rwtouch wait 20
+/redwood/bin/battery_test watch 10
+/redwood/bin/rwtouch wait 95
+/redwood/bin/battery_test 1
+/redwood/bin/fbgrab -log status 540 0.7 150

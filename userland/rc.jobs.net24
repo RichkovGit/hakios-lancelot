@@ -1,0 +1,29 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net24, REST=1 (with WIFID=1), MORE_JOBS="com.apple.bluetoothd com.apple.BlueTool",
+# NILINJECT=Preferences (src/inject_nil.c inside Settings), connsys_step=17, XNU_SECS=160, and the
+# boot args add applog=1 applog_name=Preferences.
+#
+# Run 91 (logs/lancelot-connsys41.log) opened Settings for the first time (tap 0.543 0.712, the icon
+# the picture of run 90 shows): launched 22:47:22.446, dead of SIGABRT 22:47:23.534 -- and with
+# accountsd.accountmanager, nehelper and corefollowup.agent all "there" this time. So the neighbours
+# were not the reason the dictionary gets a nil object; the run's own "watchdie" could not see the
+# death either, because "Preferences" also matched localizationswitcherd (its path has
+# IntlPreferences in it): net_test now looks at the program's own name only.
+#
+# libredwood-nil.dylib replaces -[__NSPlaceholderDictionary initWithObjects:forKeys:count:] and, when
+# an object is nil, says via kern.redwood.say which index, which keys and which frames (kept by the
+# kernel and repeated every minute, so the widget noise does not eat them), and then builds the
+# dictionary without that pair. Settings goes on instead of aborting; "watchdie" says how long it
+# lasts, and the picture at the end says what it shows.
+/redwood/bin/net_test wait 22
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test fbwait 60
+/redwood/bin/net_test wait 16
+/redwood/bin/rwtouch swipe 0.5 0.985 0.5 0.3 200
+/redwood/bin/net_test wait 3
+/redwood/bin/rwtouch tap 0.543 0.712
+/redwood/bin/net_test watchdie Preferences 30
+/redwood/bin/net_test procs Preferences
+/redwood/bin/net_test wait 3
+/redwood/bin/fbgrab -log settings 300 0.5
+/redwood/bin/net_test end

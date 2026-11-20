@@ -1,0 +1,9 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net5, WIFID=1, connsys_step=17: which domain the job runner is in, every process
+# there is, and which Mach services its bootstrap port has -- those of the jobs that run (backboardd,
+# SpringBoard, wifid) and of those that should (configd, mDNSResponder, syslogd). Run 73: lookups of
+# system services answered BOOTSTRAP_UNKNOWN_SERVICE while SpringBoard's own lookups did not.
+/redwood/bin/net_test wait 30
+/redwood/bin/net_test me procs / procs configd procs wifid procs backboardd procs notifyd procs syslogd
+/redwood/bin/net_test lookup PurpleSystemAppPort lookup PurpleWorkspacePort lookup com.apple.system.logger lookup com.apple.private.corewifi-xpc lookup com.apple.mDNSResponder.control lookup com.apple.SystemConfiguration.configd
+/redwood/bin/net_test show store

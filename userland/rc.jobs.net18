@@ -1,0 +1,30 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net18, WIFID=1, connsys_step=17, XNU_SECS=115: the radio's power, and traffic with it
+# gone and back. Run 81 (rc.jobs.net13) showed that the driver's off works -- "net: the link is down",
+# "the station says: power, 0" -- but wifid, which owns the state the Settings switch sets, asked for
+# "power, 1" 17 ms later and had the network back in 194 ms. So the switch cannot be imitated by asking
+# the kernel behind wifid's back; wifid has to be out of the way. net_test's "stop" freezes it (SIGSTOP:
+# not a crash, so launchd's KeepAlive does not start another, and it cannot undo the request), and
+# "cont" would give it back.
+#
+# What the run should show: the network up (DHCP, a 200 from example.com), wifid frozen, radio off ->
+# the link down in the kernel's own words, the interface not running, no reachability, and the fetch
+# FAILED; then radio on -> the station joins the network it knows (fw/network, the standing request of
+# bsd/dev/redwood_sta.c), an address again, and a 200 through TLS (trustd, run 77). The run ends itself
+# (kern.redwood.end) once the last line is said.
+/redwood/bin/net_test wait 22
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test fetch http://example.com/ 20
+/redwood/bin/net_test stop wifid
+/redwood/bin/net_test radio off
+/redwood/bin/net_test wait 2
+/redwood/bin/net_test show
+/redwood/bin/net_test reach example.com
+/redwood/bin/net_test fetch http://example.com/ 8
+/redwood/bin/net_test show
+/redwood/bin/net_test radio on
+/redwood/bin/net_test wait 10
+/redwood/bin/net_test show
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test fetch https://example.com/ 30
+/redwood/bin/net_test end

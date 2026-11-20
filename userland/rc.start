@@ -1,0 +1,12 @@
+# Started from etc/rc (see rc.launchd) when it is started at all: the job list of the run
+# (etc/rc.jobs), in the background so that process 1 can go on and become launchd.ios.
+#
+# NOT started by rc.launchd any more (run 48 on): launchd now does start com.redwood.demo in the user
+# domain, and forking this as well ran every command of the list twice at once (runs 40-47:
+# logs/lancelot-port2.log, process 6 from here and process 16 from launchd). It is kept in the image
+# as the way back if launchd ever stops starting the job: rc.launchd's comment has the line.
+#
+# No sleep here: init's own /etc/rc is late on this phone (the system image has been copied and the
+# checks run first), and the measured window ends at 250-255 s. The waits are in the list itself,
+# which is timed from its own start.
+/redwood/sbin/init /redwood/etc/rc.jobs

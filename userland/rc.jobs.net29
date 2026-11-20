@@ -1,0 +1,27 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net29, REST=1 (with WIFID=1), MORE_JOBS="com.apple.bluetoothd com.apple.BlueTool",
+# NILINJECT=Preferences CIINJECT=Preferences, connsys_step=17, XNU_SECS=155,
+# applog=1 applog_name=Preferences.
+#
+# Run 97 (logs/lancelot-connsys49.log) is the first picture of Settings that is not a corpse: the root
+# list with the Wi-Fi row showing the joined network (Cudy_OpenWrt_2.4Ghz), and the process alive 8 s
+# after the tap (it used to die at 0.57 s). The rows carry no icons there -- the nil iconImage pair is
+# left out by libredwood-nil -- and so CoreImage was not asked for a context yet.
+#
+# This run taps the Wi-Fi row ("Wi-Fi  Cudy_OpenWrt_2.4Ghz  >" at y = 240 of 650 in that picture,
+# x = 0.5) and waits for the pane: the pane's cells are where MobileIcons drew through CoreImage and
+# killed the program in run 96. If it lives, the picture shows the switch and the network, and the next
+# run can turn Wi-Fi off and on; if it does not, the console tail has the "!ci:" lines and the frames.
+/redwood/bin/net_test wait 22
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test fbwait 60
+/redwood/bin/net_test wait 16
+/redwood/bin/rwtouch swipe 0.5 0.985 0.5 0.3 200
+/redwood/bin/net_test wait 3
+/redwood/bin/rwtouch tap 0.543 0.712
+/redwood/bin/net_test wait 6
+/redwood/bin/rwtouch tap 0.5 0.368
+/redwood/bin/net_test wait 8
+/redwood/bin/net_test procs Preferences
+/redwood/bin/fbgrab -log wifi 300 0.5
+/redwood/bin/net_test end

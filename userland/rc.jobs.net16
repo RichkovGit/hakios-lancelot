@@ -1,0 +1,27 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net16, WIFID=1, connsys_step=17, XNU_SECS=125: the picture of Settings' list, and the
+# run ends right after it. Run 83 (rc.jobs.net15) reached the frame at 80.65 s, made both pictures, and
+# lost them: the log the host gets keeps the console's LAST ~261 KB, and the device's own noise (a
+# widget asking launchd for com.apple.geod twice a millisecond: 84 KB in 0.7 s) fills that within a
+# second or two. A picture written at 112 s of a run that ended at 122 s was long gone.
+#
+# So: one picture per run, and kern.redwood.end (net_test's "end" step, bsd/dev/redwood_mali.c) right
+# after it -- the GPU given back in order and control to the loader, the same ending the five-finger
+# gesture makes. XNU_SECS=125 is only the fallback if the sysctl is not taken.
+#
+# The network is brought up first (the pane has something to show), fbwait waits for the first swap
+# (~81 s), 16 s more for the first real frame (swap 1 has no surfaces; run 76's swap 2 came 13.7 s
+# later), the lock screen is swiped away, Settings is tapped (0.875 0.71: the last row's fourth icon,
+# Maps Health Wallet Settings, as run 80's and 82's pictures of the home screen show), and its list is
+# photographed. fbgrab WIDTH 300 QUALITY 0.4 is about 25 KB, ~167 lines of base64 on the console.
+/redwood/bin/net_test wait 22
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test fetch http://example.com/ 20
+/redwood/bin/net_test fbwait 60
+/redwood/bin/net_test wait 16
+/redwood/bin/rwtouch swipe 0.5 0.985 0.5 0.3 200
+/redwood/bin/net_test wait 3
+/redwood/bin/rwtouch tap 0.875 0.71
+/redwood/bin/net_test wait 12
+/redwood/bin/fbgrab -log settings 300 0.4
+/redwood/bin/net_test end

@@ -1,0 +1,24 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net12, WIFID=1, connsys_step=17, XNU_SECS=114: the pictures of Settings at last.
+# Run 78 (rc.jobs.net9) ran fbgrab and got "the picture was not given (errno 22)": kern.redwood.fbgrab
+# answers EINVAL until the first swap reaches the framebuffer, and SpringBoard's first swap is at about
+# 80.5 s here (logs/lancelot-connsys25.log: 80.08; -connsys29.log: 80.73). net_test's fbwait holds the
+# gestures until then; the 20 s after it are for the first real frame (swap 1 has no surfaces; run 76's
+# swap 2, with one, came 13.7 s later).
+#
+# The network is brought up first as in run 76 (twice: the radio joins at ~25 s and configd is not
+# always ready at the first ask), so the Wi-Fi pane has something to show. The lock screen is swiped
+# away, Settings is opened, its list photographed, the Wi-Fi row tapped, the pane photographed.
+# fbgrab is the last thing a run does: the JPEG goes to the console in base64 and the log keeps the
+# last ~261 KB, so WIDTH 300 QUALITY 0.4 (about 25 KB each) leaves room for the console's own noise
+# between them. XNU_SECS=114 ends the run about 6 s after the last picture.
+/redwood/bin/net_test wait 22
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test fetch http://example.com/ 20
+/redwood/bin/net_test fbwait 60
+/redwood/bin/net_test wait 20
+/redwood/bin/rwtouch swipe 0.5 0.985 0.5 0.3 200 wait 6 tap 0.615 0.71 wait 12
+/redwood/bin/fbgrab -log settings 300 0.4
+/redwood/bin/rwtouch tap 0.5 0.245 wait 8
+/redwood/bin/fbgrab -log wifi 300 0.4

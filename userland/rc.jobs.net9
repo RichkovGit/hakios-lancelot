@@ -1,0 +1,10 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net9, WIFID=1, connsys_step=17, XNU_SECS=68: two pictures of Settings -- the list,
+# and the Wi-Fi pane (RC_JOBS=rc.jobs.net8, run 77, showed https://example.com/ answered 200 through
+# trustd, which launchd started on demand; what is left is what the system shows of the network).
+# fbgrab has to be the last thing a run does: its JPEG goes to the console in base64, and the log
+# keeps the last ~261 KB, which a widget's lookup failures fill at tens of KB a second (run 71).
+/redwood/bin/rwtouch wait 32 swipe 0.5 0.985 0.5 0.3 200 wait 6 tap 0.615 0.71 wait 16
+/redwood/bin/fbgrab -log settings
+/redwood/bin/rwtouch tap 0.5 0.245 wait 8
+/redwood/bin/fbgrab -log wifi

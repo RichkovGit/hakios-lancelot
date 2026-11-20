@@ -1,0 +1,18 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net11, WIFID=1, connsys_step=17, XNU_SECS=115: the pictures of Settings at last.
+# Run 78 (rc.jobs.net9) had the right list and did run fbgrab -- which said "the picture was not given
+# (errno 22)": kern.redwood.fbgrab answers EINVAL until the first swap reaches the framebuffer, and on
+# this phone SpringBoard's first frame comes at about 80 s (logs/lancelot-connsys25.log: swap 1 at
+# 80.08 s; -connsys28.log: 80.72 s). So net_test's fbwait holds the gestures until the panel has a
+# picture, instead of a guessed wait.
+#
+# First the network is brought up as in run 76, so the Wi-Fi pane shows the network it is on; then the
+# lock screen is swiped away, Settings is opened, its list photographed, the Wi-Fi row tapped, and the
+# pane photographed. fbgrab has to be the last thing a run does: the JPEG goes to the console in
+# base64, and only the log's last ~261 KB come back, so WIDTH 300 QUALITY 0.5 keeps each to ~35 KB.
+/redwood/bin/net_test dhcp en0 waitaddr en0 8 fetch http://example.com/
+/redwood/bin/net_test fbwait 90
+/redwood/bin/rwtouch swipe 0.5 0.985 0.5 0.3 200 wait 6 tap 0.615 0.71 wait 12
+/redwood/bin/fbgrab -log settings 300 0.5
+/redwood/bin/rwtouch tap 0.5 0.245 wait 6
+/redwood/bin/fbgrab -log wifi 300 0.5

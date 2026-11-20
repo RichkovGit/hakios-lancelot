@@ -1,0 +1,17 @@
+# App launch + TCC Allow (run 95): the app keeps the display awake (idleTimerDisabled in bt_app.m).
+# Launch from SpringBoard, wait for the prompt, tap Allow (right button), let the app scan.
+/redwood/bin/net_test wait 22
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test waitproc SpringBoard 90
+/redwood/bin/net_test fbwait 90
+/redwood/bin/net_test wait 12
+/redwood/bin/rwtouch swipe 0.5 0.985 0.5 0.3 200
+/redwood/bin/net_test wait 5
+/redwood/bin/rwtouch notify com.redwood.launch
+/redwood/bin/net_test wait 10
+/redwood/bin/rwtouch tap 0.68 0.56
+/redwood/bin/net_test wait 3
+/redwood/bin/rwtouch tap 0.68 0.56
+/redwood/bin/net_test wait 30
+/redwood/bin/net_test procs bt_test
+/redwood/bin/hello_dyn LAUNCH: allow tapped

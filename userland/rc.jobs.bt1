@@ -1,0 +1,27 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.bt1, REST=1 (with WIFID=1), MORE_JOBS="com.apple.bluetoothd com.apple.BlueTool",
+# OSLOG="com.apple.backboardd com.apple.bluetoothd" so bluetoothd's own os_log reaches the console,
+# BT=1 (build.sh copies bt_test into /redwood/bin and adds libredwood to BlueTool and bluetoothd, so the
+# service com.apple.BlueTool is ours), RUNATLOAD="com.apple.BlueTool" (started before it is asked for:
+# in run 101 launchd never scheduled it, and bluetoothd's boot script timed out for want of a service),
+# connsys_step=17 connsys_bt=2, XNU_SECS=110.
+#
+# What is in place after runs 89 and 90: the controller answers (WMT's function on, then six HCI
+# commands: reset, local version, BD_ADDR (redacted), features, buffers 1021/6, LE 251/8),
+# the "bluetooth" node is in the registry, /dev/cu.bluetooth and /dev/uart.bluetooth exist (major 19),
+# com.apple.uart.sk.bluetooth and its Skywalk pipe are up, and bluetoothd (pid 21) is running with
+# com.apple.server.bluetooth given out. What has not been seen once is a byte of HCI going the other
+# way: btsk_sync_tx has never had a slot.
+#
+# bt_test asks the same questions from an application's side -- the central manager's state,
+# MobileGestalt's "bluetooth", bluetoothd's four Mach services, BluetoothManager's attach error (the
+# value -[BluetoothManager _attach] keeps), and a 20 s scan for advertisers. If the state is 5 and
+# the scan comes back empty, the gap is below CoreBluetooth; if the state stays 0 or 4, it is the
+# attach through BluetoothManager that fails, and its error number says where.
+/redwood/bin/net_test wait 22
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test lookup com.apple.server.bluetooth
+/redwood/bin/net_test procs bluetooth
+/redwood/bin/bt_test 20
+/redwood/bin/net_test procs bluetooth
+/redwood/bin/net_test end

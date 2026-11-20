@@ -1,0 +1,28 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net14, WIFID=1, connsys_step=17, XNU_SECS=118: the pictures of Settings.
+# Run 80 (rc.jobs.net12, logs/lancelot-connsys30.log) got the first one at last -- 86 lines of fbjpg,
+# logs/settings1.jpg -- but it was Wallet: the tap at 0.615 0.71 of the home screen lands on the icon
+# the default layout puts there (Wallet is iconLists[0][16] in SpringBoard.app's
+# DefaultIconState~iphone.plist, Settings is [17], and the two folders at [0] and [1] do not sit where
+# the list says). So Settings is not found by tapping: it is launched, as battery_test's "launch" step
+# does (SpringBoardServices' SBSLaunchApplicationWithIdentifier, the program signed with
+# com.apple.springboard.opensensitiveurl), and its Wi-Fi page is opened with "open prefs:root=WIFI"
+# (SBSOpenSensitiveURLAndUnlock). No icon and no row is guessed.
+#
+# The network is brought up first so the pane has something to show; fbwait waits for the first swap
+# (~81 s) and 16 s more for the first real frame (run 76: swap 1 has no surfaces, swap 2 came 13.7 s
+# later). fbgrab is still the last thing: the JPEG goes to the console in base64 and the log keeps the
+# last ~261 KB. XNU_SECS=118 ends the run about 5 s after the second picture.
+/redwood/bin/net_test wait 22
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test fetch http://example.com/ 20
+/redwood/bin/net_test fbwait 60
+/redwood/bin/net_test wait 16
+/redwood/bin/rwtouch swipe 0.5 0.985 0.5 0.3 200
+/redwood/bin/net_test wait 3
+/redwood/bin/battery_test launch com.apple.Preferences
+/redwood/bin/net_test wait 12
+/redwood/bin/fbgrab -log settings 300 0.4
+/redwood/bin/battery_test open prefs:root=WIFI
+/redwood/bin/net_test wait 8
+/redwood/bin/fbgrab -log wifi 300 0.4

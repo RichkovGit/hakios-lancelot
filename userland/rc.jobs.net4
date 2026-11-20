@@ -1,0 +1,12 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# The phone's own radio (RC_JOBS=rc.jobs.net4, image built with WIFID=1, boot-arg
+# connsys_step=17): who is running of the daemons a network needs, whether launchd has their Mach
+# services, what en0 looks like, whether the kernel takes it up, what configd knows, and then the
+# test itself. Every line of net_test's output goes into kern.redwood.host_keep as well (run 72:
+# the console's tail was full of a widget's lookup failures, and 95 s of net_test was lost).
+/redwood/bin/net_test wait 30
+/redwood/bin/net_test procs configd procs wifid procs mDNSResponder procs trustd procs launchd
+/redwood/bin/net_test lookup com.apple.SystemConfiguration.configd lookup com.apple.network.IPConfiguration lookup com.apple.dnssd.service lookup com.apple.system.logger
+/redwood/bin/net_test show store up en0 dhcp en0 waitaddr en0 8 store
+/redwood/bin/net_test resolve example.com tcp example.com 80 reach example.com
+/redwood/bin/net_test fetch http://example.com/

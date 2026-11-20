@@ -1,0 +1,27 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net15, WIFID=1, connsys_step=17, XNU_SECS=118: the pictures of Settings.
+# Run 82 (rc.jobs.net14, logs/lancelot-connsys32.log) tried battery_test's "launch" and "open"
+# (SpringBoardServices' SBSLaunchApplicationWithIdentifier and SBSOpenSensitiveURLAndUnlock) and got
+# nothing: battery_test is unsigned here (no ldid in the build), so SpringBoard will not do either for
+# it. Its two pictures are both the home screen -- and that is what says where Settings is: the last
+# row of the first page has Maps, Health, Wallet, Settings, so the icon is at 0.875 0.71 of the screen
+# (the tap at 0.615 0.71 of run 80 opened Wallet, the icon beside it). The Wi-Fi row of Settings' list
+# is the second one, about 0.245 down (Airplane Mode is the 0.209th, rows are 44 points at 812).
+#
+# The network is brought up first so the pane has something to show; fbwait waits for the first swap
+# (~81 s) and 16 s more for the first real frame. fbgrab is the last thing: the JPEG goes to the
+# console in base64 and the log keeps the last ~261 KB. XNU_SECS=118 ends the run about 6 s after the
+# second picture.
+/redwood/bin/net_test wait 22
+/redwood/bin/net_test dhcp en0 waitaddr en0 10
+/redwood/bin/net_test fetch http://example.com/ 20
+/redwood/bin/net_test fbwait 60
+/redwood/bin/net_test wait 16
+/redwood/bin/rwtouch swipe 0.5 0.985 0.5 0.3 200
+/redwood/bin/net_test wait 3
+/redwood/bin/rwtouch tap 0.875 0.71
+/redwood/bin/net_test wait 12
+/redwood/bin/fbgrab -log settings 300 0.4
+/redwood/bin/rwtouch tap 0.5 0.245
+/redwood/bin/net_test wait 8
+/redwood/bin/fbgrab -log wifi 300 0.4

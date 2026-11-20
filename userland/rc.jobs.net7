@@ -1,0 +1,13 @@
+# Commands run by the launchd job com.redwood.demo (see com.redwood.demo.plist).
+# RC_JOBS=rc.jobs.net7, WIFID=1, connsys_step=17: run 75 found the job runner's bootstrap port to be
+# the system session (notifyd, fseventsd, logd are there) and /System/Library/LaunchDaemons to hold
+# every plist -- but launchd had loaded none of the eight jobs WIFID=1 adds, and those were the only
+# world-writable (0777) plists in the image, which launchd refuses (error = 122; the build now writes
+# the mode manifest from the tree, so they are 0644). This asks who is running now, whether their
+# Mach services are there, and then has configd's IPConfiguration configure en0 by DHCP.
+/redwood/bin/net_test wait 30
+/redwood/bin/net_test me procs configd procs wifid procs mDNSResponder procs trustd procs securityd
+/redwood/bin/net_test lookup com.apple.SystemConfiguration.configd lookup com.apple.network.IPConfiguration lookup com.apple.dnssd.service lookup com.apple.private.corewifi-xpc
+/redwood/bin/net_test show store up en0 dhcp en0 waitaddr en0 12 store
+/redwood/bin/net_test resolve example.com tcp example.com 80 reach example.com
+/redwood/bin/net_test fetch http://example.com/
