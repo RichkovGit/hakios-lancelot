@@ -1,76 +1,68 @@
-# HakiOS · MediaTek Helio (Infinix Hot 20)
+# HakiOS · Xiaomi Redmi 9 (lancelot)
 
 [English](README.md) · Русский
 
-**Открытое ядро Apple Darwin (XNU, xnu-8796.121.2 — ядро iOS 16.5) на телефоне MediaTek** — так же, как Android это Linux на телефонах:
-свой загрузчик, свои драйверы, своя система настройки и своя версия. Эталонное устройство этой ветки (`mtk`) —
-**Infinix Hot 20 (X6826B): Helio G85 (MT6768), GPU Mali-G52 MC2**. Поверх работает **немодифицированный userland iOS 16.5**:
-launchd → backboardd → SpringBoard → приложения.
+**Открытое ядро Apple Darwin (XNU, xnu-8796.121.2 — ядро iOS 16.5) на Xiaomi Redmi 9** — так же, как Android это Linux на
+телефонах: свой загрузчик (`mtkloader`), свои драйверы, поверх — немодифицированный userland iOS 16.5
+(launchd → backboardd → SpringBoard → приложения).
 
-Телефон ничего не теряет. `mtkloader` встаёт в `boot_a` перед ядром Android; по команде из Android один раз запускает XNU, и после
-сеанса телефон сам возвращается в Android. Образ системы iOS лежит в отдельном разделе `xnusys` и читается с eMMC по мере надобности.
-Это стенд для исследования, а не прошивка.
+Устройство: **Xiaomi Redmi 9 global (lancelot) — MediaTek Helio G80 (MT6769T, family MT6768), Mali-G52, PMIC MT6358,
+тач FocalTech FT8719P, Wi-Fi/BT CONNSYS MT6631.** Порт основан на baseline Infinix Hot 20 (X6826B, MT6768) ветки `mtk`;
+журналы Infinix в `docs/` описывают тот телефон и **не** всё применимо к lancelot.
 
-**Документация:** [docs/](docs/README.md); перенос на другой телефон MediaTek: [docs/mtk-porting.md](docs/mtk-porting.md).
+Телефон ничего не теряет. `mtkloader` встаёт в `boot` перед ядром Android, один раз запускает XNU, после сеанса телефон
+сам возвращается в Android. Образ системы iOS — в отдельном разделе `xnusys` на eMMC.
+**Исследовательский стенд, не прошивка на каждый день.**
 
-## Что работает
+**Статус и чеклист:** [docs/lancelot-release-checklist.md](docs/lancelot-release-checklist.md) ·
+**Установка:** [docs/from-a-clone.md](docs/from-a-clone.md), [docs/mtk-porting.md](docs/mtk-porting.md).
 
-- **Загрузка** — `mtkloader` на MT6768 (MMU выключен, eMMC через MSDC0, дерево устройства для XNU); 4 ядра A55/A75 с управлением
-  частотой (`mtk_cpufreq`).
-- **Память и накопитель** — корень системы на eMMC (`emmc_root=1`), а не в ОЗУ; iOS доступно около 2,5 ГБ.
-- **Графика** — свой драйвер Mali в ядре (`bsd/dev/redwood_mali.c`), Mesa с **panfrost** и драйвер **Metal**
-  (`userland/src/redwoodmetal.m`, компилятор AIR→NIR): CoreAnimation рисует через Metal на Mali-G52. Экран блокировки, разблокировка
-  свайпом, полный домашний экран, системные жесты и Пункт управления.
-- **Ввод** — сенсорный экран (OmniVision TD4160 на SPI2, `bsd/dev/redwood_tcm.c`), мультитач, пробуждение касанием; настоящие кнопки питания и громкости.
-- **Датчики** — акселерометр через сенсорный хаб SCP (`bsd/dev/redwood_scp.c`); поворот экрана в backboardd.
-- **Wi-Fi** — CONNSYS поднимается из прошивки самого телефона; телефон подключается к сети из Настроек, и Safari грузит через неё
-  страницы (`docs/wifi-x6826b.md`).
-- **Bluetooth** — контроллер MT6631 за настоящим `bluetoothd` из iOS: приложения видят в скане настоящие BLE-устройства, Настройки
-  показывают телефон как обнаруживаемый. Подтверждённого сопряжения, профилей и звука нет (`docs/bluetooth-x6826b.md`).
-- **Батарея** — настоящий процент в строке состояния (`mtkbatt=1`, `bsd/dev/redwood_mtkbatt.c`): последнее число Android, которое
-  дальше ведёт счётчик заряда MT6358. Микросхемой зарядки (RT9471) драйвер пока не управляет.
-- **Приложения и оболочка** — Настройки, Часы, Календарь, Фото, Заметки и др.; Safari; Sileo с префиксом Procursus (dpkg/apt) в
-  `/var/jb`; SSH на телефон по ключу.
+## Что работает на lancelot (проверено на устройстве)
 
-**Пока нет или не цель:** сотовая сеть, динамики и микрофоны телефона, съёмка с камеры, вибрация и запись на системный том
-(то, что iOS пишет в `/private/var`, вместо этого архивируется в раздел `darwin` и переживает перезагрузку). Онлайн-сервисы Apple —
-активация, Apple ID, iCloud, App Store — **не поддерживаются и не являются целью**: на этом железе нет Secure Enclave, и ничего из того,
-что проверяют серверы Apple, не подделывается.
+- **Загрузка и возврат** — XNU грузится, SMP 4 ядра, сеанс завершается возвратом в Android без паники; откат на сток — одна прошивка `boot`.
+- **Графика** — драйвер Mali в ядре (`redwood_mali.c`), Mesa **panfrost** (OpenGL ES) и **Metal** (`redwoodmetal.m`): SpringBoard, домашний экран, жесты, Пункт управления; чётко на 2× (`fbscale=2`).
+- **Настройки** открываются с Metal-драйвером (`metal=1`).
+- **Акселерометр / SCP** — сенсорный хаб MT6768 (`redwood_scp.c`, `scp_step=7`), реальные x/y/z 50 Гц.
+- **Поворот экрана** — акселерометр → orientation → backboardd, end-to-end.
+- **Фонарик** — LED191 на двух GPIO (EN152/SEL153), `redwood_mtktorch.c` (`mtktorch=3`) + ABI iOS.
+- **Батарея** — процент, напряжение, ток, температура через MT6358 fuel gauge (`redwood_mtkbatt.c`, `mtkbatt=2`); совпадает с Android.
+- **Тач** — FocalTech FT8719P (`redwood_fts.c`), отчёты без ошибок (0 bad/timeout/CRC).
+- **Bluetooth** — контроллер отвечает, `bluetoothd` стабилен (краш при скане исправлен), LE-скан принимает advertiser'ов.
+- **Заставка** — оригинальный знак HakiOS (`mtkloader/splash.h`), без ассетов Apple.
 
-## Репозитории
+## Известные баги / ещё не готово (честно)
 
-| Репозиторий | Что внутри |
-|---|---|
-| [hakios-xnu-kernel](https://github.com/oosexgang/hakios-xnu-kernel) | порт ядра, общие драйверы, загрузчик, userland, инструменты и эта документация; Infinix Hot 20 живёт в ветке `mtk` |
-| [hakios-mt6768](https://github.com/oosexgang/hakios-mt6768) | порт на Infinix Hot 20 (MediaTek Helio G85) со своим загрузчиком |
-| [hakios-uefi](https://github.com/oosexgang/hakios-uefi) | прошивка, которая запускает загрузчик |
-| [hackios-web](https://github.com/oosexgang/hackios-web) | сайт |
+- **Тач залипает/вязкий** — рендер ~30 fps (не 60); чип исправен, лаг от кадр-рейта/доставки HID.
+- **Настройки падают без Metal** — открываются только с `metal=1`.
+- **Картинка шакальная на 1×** — 375×812 растягивается на 1080×2340; чётко на 2×/нативе.
+- **Интернет в demo не работает** — ядро начинает join, но `wifid` отказывает в ассоциации/DHCP; в отдельных прогонах Wi-Fi трафик шёл.
+- **Bluetooth не доставляет в приложения/Настройки** — TCC не строит identity приложения, промпт Allow не поднимается.
+- **Звука/микрофона нет** — железо подтверждено (кодек MT6358 + усилитель Awinic AW87519, аналоговый LOL, probe `redwood_mtkafe.c`), выход не реализован.
+- Экран может гаснуть (auto-lock); натив 1080×2340 + UIKit-scale не сведены с тачем.
+- Камера, вибрация, GPS — в очереди ([docs/lancelot-peripherals.md](docs/lancelot-peripherals.md)).
+- Онлайн-сервисы Apple (активация, Apple ID, iCloud, App Store) — **не поддерживаются, не цель** (нет Secure Enclave).
 
-## Что приносишь ты, и чего здесь нет никогда
+## Что приносишь ты, и чего здесь нет
 
-В репозитории нет ни одного файла Apple и ни одной прошивки вендора. Userland Darwin, если он тебе нужен, ты раскладываешь сам из IPSW,
-который скачиваешь сам (`ios165/fetch.sh`); прошивки MediaTek — CONNSYS (Wi-Fi/Bluetooth) и SCP (датчики) — снимаются с Android твоего же
-телефона (`docs/wifi-x6826b.md`, `docs/sensors-x6826b.md`). Ничего не качается за тебя, не расшифровывается и не обходится. В публикуемом
-дереве не должно быть ни одного файла iOS, ни одной прошивки телефона, ни одного снимка экрана iOS; в этой исследовательской копии ещё
-лежат локальные копии некоторых из них (вендорские UEFI-бинарники, заголовки прошивки тача, снимки экрана в документации и готовые
-образы), и [docs/lancelot-release-audit.md](docs/lancelot-release-audit.md) перечисляет, что именно убирается перед любым релизом.
+Ничего из Apple и вендорских прошивок в репозитории нет. Userland раскладываешь сам из своего IPSW (`ios165/fetch.sh`);
+прошивки MediaTek (CONNSYS, SCP) — со своего телефона. Ничего не качается за тебя, не расшифровывается и не обходится.
+Ни одного файла iOS, прошивки телефона, скриншота iOS, серийника или радио-идентификатора в репо нет.
+См. [docs/lancelot-release-audit.md](docs/lancelot-release-audit.md).
 
 ## Сборка
 
-Ядро собирается из внешнего дерева исходников XNU плюс `xnu/redwood.patch` (`xnu-build.sh`); библиотеки и инструменты userland —
-`userland/build.sh`; загрузочный образ пакуется и прошивается, а сеанс запускается скриптом `tools/xnu-cycle.sh`. Образ системы собирается из
-твоего же IPSW (`ios165/fetch.sh`). Все команды по порядку и что каждой нужно: [docs/from-a-clone.md](docs/from-a-clone.md).
-Для другого телефона: [docs/mtk-porting.md](docs/mtk-porting.md).
+Ядро: внешнее дерево XNU + `xnu/redwood.patch` (`xnu-build.sh`). Userland: `userland/build.sh` (`GL=1 METAL=1` для графики).
+Образ системы: `tools/system-flash.sh` → `xnusys`. Загрузчик + сеанс: `tools/xnu-payload.sh` + `tools/xnu-smoke.sh`.
+Все команды по порядку: [docs/from-a-clone.md](docs/from-a-clone.md).
 
 ## Лицензия и правовое
 
-Патч XNU и производные от него файлы — под Apple Public Source License 2.0; всё остальное — под MIT, как указано в заголовках файлов.
-Ничто из этого не является юридической консультацией.
+Патч XNU и производные — Apple Public Source License 2.0; остальное — MIT, как указано в заголовках файлов. Не юридическая консультация.
 
-HakiOS — независимый исследовательский проект. Он **не связан с Apple и не одобрен Apple**; «Darwin», «iPhone», «XNU», «iOS» и «Apple»
-названы только чтобы описать, с чем работает код. Если ты считаешь, что какой-то файл здесь нарушает чьи-то права, открой issue — он
-будет удалён.
+HakiOS — независимый исследовательский проект, **не связан с Apple и не одобрен Apple**; «Darwin», «iPhone», «XNU», «iOS»,
+«Apple» названы только чтобы описать, с чем работает код. Если считаешь, что файл нарушает чьи-то права — открой issue.
 
-## Команда
+## Происхождение
 
-Экспериментальный проект, переносящий ядро Apple Darwin на Android-железо. Цель — чтобы HakiOS оставался свободным и доступным каждому.
+Основано на baseline HakiOS `mtk` (Infinix Hot 20 / X6826B). Upstream:
+[hakios-xnu-kernel](https://github.com/oosexgang/hakios-xnu-kernel). Этот репозиторий — порт на Redmi 9 (lancelot).
