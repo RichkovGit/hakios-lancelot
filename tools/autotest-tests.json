@@ -1,0 +1,324 @@
+{
+  "profiles": {
+    "hwprobe": {
+      "secs": 55,
+      "cores": 4,
+      "args": "cpus=4 touchscreen=3 fbscale=2 fbfit=0 mali=1 gl=1 metal=1 scp_step=7 mtktorch=1 mtkafe=2 mtkbatt=2 bt_hci_trace=0 bt_tx_trace=0",
+      "tests": [
+        {
+          "id": "kernel-boot",
+          "desc": "XNU boots and returns cleanly to Android",
+          "pass": [
+            "kept for the host by the kernel"
+          ],
+          "fail": [
+            "Kernel panic",
+            "panic\\("
+          ]
+        },
+        {
+          "id": "accel-scp",
+          "desc": "SCP sensor hub brings up and runs",
+          "pass": [
+            "scp: step 7: the hub runs"
+          ],
+          "fail": [
+            "scp: step 2: not started",
+            "watchdog fired"
+          ]
+        },
+        {
+          "id": "accel-data",
+          "desc": "real accelerometer x/y/z samples",
+          "pass": [
+            "scp: step 6:.*x -?\\d+ y -?\\d+ z \\d+"
+          ],
+          "fail": []
+        },
+        {
+          "id": "torch-probe",
+          "desc": "flashlight GPIO probe (EN/SEL)",
+          "pass": [
+            "mtktorch: level 1;"
+          ],
+          "fail": [
+            "cannot be made"
+          ]
+        },
+        {
+          "id": "audio-codec",
+          "desc": "MT6358 codec readable over PWRAP (AUD_TOP_ID 0xc800)",
+          "pass": [
+            "AUD_TOP_ID \\(0x2200\\) = 0xc800"
+          ],
+          "fail": [
+            "AUD_TOP_ID.*read failed"
+          ]
+        },
+        {
+          "id": "audio-amp",
+          "desc": "AW87519 speaker amp chip id 0x59 on I2C7",
+          "pass": [
+            "chip id \\(reg 0x00\\) = 0x59"
+          ],
+          "fail": [
+            "did not acknowledge",
+            "NOT 0x59"
+          ]
+        },
+        {
+          "id": "battery",
+          "desc": "battery telemetry SOC + voltage",
+          "pass": [
+            "mtkbatt: \\d+\\.\\d+%.*mV"
+          ],
+          "fail": [
+            "not a cell's voltage",
+            "does not latch"
+          ]
+        }
+      ]
+    },
+    "audio3": {
+      "secs": 55,
+      "cores": 4,
+      "args": "cpus=4 touchscreen=3 fbscale=2 fbfit=0 mali=1 gl=1 metal=1 mtkafe=3 bt_hci_trace=0 bt_tx_trace=0",
+      "tests": [
+        {
+          "id": "kernel-boot",
+          "desc": "XNU boots and returns cleanly",
+          "pass": [
+            "kept for the host by the kernel"
+          ],
+          "fail": [
+            "Kernel panic",
+            "panic\\("
+          ]
+        },
+        {
+          "id": "apll1-powered",
+          "desc": "APLL1 powered for 48k audio (PWR bit0)",
+          "pass": [
+            "APLL1 PCW 0x78fd526.*PWR 0x[89a-f]"
+          ],
+          "fail": []
+        },
+        {
+          "id": "apll1-enabled",
+          "desc": "APLL1 PLL enabled (CON0 bit0)",
+          "pass": [
+            "APLL1 PCW.*CON0 0x[0-9a-f]*[13579bf]"
+          ],
+          "fail": []
+        },
+        {
+          "id": "audiosyscon-gates",
+          "desc": "audiosyscon audio gates set",
+          "pass": [
+            "audiosyscon reg0 0x[0-9a-f]+ -> 0xaffd4"
+          ],
+          "fail": []
+        },
+        {
+          "id": "afe-tuner",
+          "desc": "AFE APLL tuner + HD engen enabled",
+          "pass": [
+            "AFE APLL_TUNER 0x435 HD_ENGEN 0x2"
+          ],
+          "fail": []
+        },
+        {
+          "id": "audio-amp",
+          "desc": "AW87519 amp still acknowledges",
+          "pass": [
+            "chip id \\(reg 0x00\\) = 0x59"
+          ],
+          "fail": [
+            "did not acknowledge"
+          ]
+        }
+      ]
+    },
+    "audio4": {
+      "secs": 60,
+      "cores": 4,
+      "args": "cpus=4 touchscreen=3 fbscale=2 fbfit=0 mali=1 gl=1 metal=1 mtkafe=4 mtkafe_secs=6 bt_hci_trace=0 bt_tx_trace=0",
+      "tests": [
+        {
+          "id": "kernel-boot",
+          "desc": "XNU boots and returns cleanly",
+          "pass": [
+            "kept for the host by the kernel"
+          ],
+          "fail": [
+            "Kernel panic",
+            "panic\\("
+          ]
+        },
+        {
+          "id": "apll1-powered",
+          "desc": "APLL1 powered for 48k audio",
+          "pass": [
+            "APLL1 PCW 0x78fd526.*PWR 0x[89a-f]"
+          ],
+          "fail": []
+        },
+        {
+          "id": "apll1-enabled",
+          "desc": "APLL1 PLL enabled (CON0 bit0)",
+          "pass": [
+            "APLL1 PCW.*CON0 0x[0-9a-f]*[13579bf]"
+          ],
+          "fail": []
+        },
+        {
+          "id": "codec-digital",
+          "desc": "MT6358 digital playback path set",
+          "pass": [
+            "MT6358 digital playback path set"
+          ],
+          "fail": []
+        },
+        {
+          "id": "lol-gain",
+          "desc": "LOL analog up at -40 dB (ZCD_CON1 0x0f9f)",
+          "pass": [
+            "gain ZCD_CON1 0x0f9f"
+          ],
+          "fail": [
+            "mismatch"
+          ]
+        },
+        {
+          "id": "amp-profile",
+          "desc": "AW87519 kspk profile written",
+          "pass": [
+            "AW87519 kspk profile written"
+          ],
+          "fail": [
+            "kspk aborted",
+            "write failed"
+          ]
+        },
+        {
+          "id": "dl1-on",
+          "desc": "DL1 memif enabled (DAC_CON0 bit1)",
+          "pass": [
+            "DL1 on DAC_CON0 0x3"
+          ],
+          "fail": []
+        },
+        {
+          "id": "irq0-on",
+          "desc": "IRQ0 MCU on (paces DL1 memif)",
+          "pass": [
+            "IRQ_CON0 0x[0-9a-f]*[13579bf]"
+          ],
+          "fail": []
+        },
+        {
+          "id": "conn-route",
+          "desc": "DL1->ADDA_DL interconnect routed (CONN3 0x20 / CONN4 0x40)",
+          "pass": [
+            "route CONN3 0x20 CONN4 0x40"
+          ],
+          "fail": []
+        },
+        {
+          "id": "afe-master",
+          "desc": "AFE master block on (AFE_ON_RETM bit0=0)",
+          "pass": [
+            "AFE_ON_RETM bit0=0"
+          ],
+          "fail": [
+            "AFE_ON_RETM bit0=1"
+          ]
+        },
+        {
+          "id": "dma-ran",
+          "desc": "DL1 DMA consumed frames (CUR advanced)",
+          "pass": [
+            "DL1 DMA advanced"
+          ],
+          "fail": [
+            "DMA NOT advancing"
+          ]
+        },
+        {
+          "id": "tone",
+          "desc": "1 kHz tone played and stopped cleanly",
+          "pass": [
+            "TONE 1 kHz",
+            "mtkafe: tone done"
+          ],
+          "fail": [
+            "bring-up FAILED"
+          ]
+        }
+      ]
+    },
+    "conn": {
+      "secs": 180,
+      "cores": 4,
+      "args": "cpus=4 touchscreen=3 fbscale=1 fbfit=0 fb_filter=0 fb_threads=6 fb_beat=0 mali=1 gl=1 connsys_step=17 connsys_bt=2 bt_hci_trace=0 bt_tx_trace=0 bt_said=200 bt_said_from=90 applog=1 applog_name=bluetoothd",
+      "tests": [
+        {
+          "id": "kernel-boot",
+          "desc": "XNU boots and returns cleanly",
+          "pass": [
+            "kept for the host by the kernel"
+          ],
+          "fail": [
+            "Kernel panic",
+            "panic\\("
+          ]
+        },
+        {
+          "id": "connsys-powered",
+          "desc": "CONNSYS radio powered (step 4)",
+          "pass": [
+            "connsys: step 4 .* powered"
+          ],
+          "fail": [
+            "off-domain is not powered"
+          ]
+        },
+        {
+          "id": "wifi-en0",
+          "desc": "Wi-Fi interface en0 created",
+          "pass": [
+            "connsys: en0 made for the radio"
+          ],
+          "fail": []
+        },
+        {
+          "id": "wifi-traffic",
+          "desc": "Wi-Fi associated + traffic carried (sent>0)",
+          "pass": [
+            "connsys: carried .* sent [1-9]\\d*"
+          ],
+          "fail": []
+        },
+        {
+          "id": "bt-opened",
+          "desc": "bluetoothd opens the BT device",
+          "pass": [
+            "connsys: bt device .* opened by bluetoothd"
+          ],
+          "fail": []
+        },
+        {
+          "id": "bt-stable",
+          "desc": "bluetoothd stable (no abort/panic)",
+          "pass": [
+            "bt device"
+          ],
+          "fail": [
+            "SIGABRT",
+            "bluetoothd.*crash"
+          ]
+        }
+      ]
+    }
+  }
+}

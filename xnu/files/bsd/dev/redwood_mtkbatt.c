@@ -402,9 +402,14 @@ mtkbatt_thread(__unused void *arg, __unused wait_result_t wr)
 			b.usb_voltage_uv = (vbus > 0 ? vbus : VBUS_MV_NOMINAL) * 1000;
 			b.usb_current_ua = USB_CURRENT_UA;
 		}
-		/* Linux's numbers: 1 charging, 2 discharging, 3 not charging, 4 full */
+		/* Linux's numbers: 1 charging, 2 discharging, 3 not charging, 4 full.
+		 * Full is the charger's termination -- current tapered (<150 mA) at the float
+		 * voltage (>=4.2 V) -- not a high SOC alone; SOC>=99.5% stays as a fallback.
+		 * (The RT9471's own charge-state flag is the next refinement.) */
 		if (!charger) {
 			b.status = 2;
+		} else if (current && kept_ma >= 0 && kept_ma < 150 && kept_mv >= 4200) {
+			b.status = 4;
 		} else if (b.percent_hundredths >= 9950) {
 			b.status = 4;
 		} else if (current && kept_ma <= 0) {

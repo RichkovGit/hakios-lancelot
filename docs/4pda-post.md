@@ -78,6 +78,11 @@ MT6768), Mali-G52, PMIC MT6358, тач FocalTech FT8719P, Wi-Fi/BT CONNSYS MT663
 из своего IPSW, прошивки CONNSYS/SCP снимаются со своего телефона. Установка по
 умолчанию read-only; записи только с явными флагами.
 
+> **Образ системы iOS (`system.apfs` для `xnusys`) не распространяется** — это проприетарный
+> userland Apple, собирается из своего IPSW (`ios165/fetch.sh`). Без него XNU загрузится, но
+> launchd не найдёт `libSystem.B.dylib`/`launchd` (ошибка «отсутствует libSystem.B.dylib»).
+> Готового «boot.img с iOS» нет: boot.img несёт только загрузчик + ядро, корень iOS — в xnusys.
+
 ## Лицензия
 
 Патч XNU и производные — Apple Public Source License 2.0; остальное — MIT.

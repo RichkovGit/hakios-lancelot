@@ -37,7 +37,7 @@
 - **Картинка шакальная на 1×** — 375×812 растягивается на 1080×2340; чётко на 2×/нативе.
 - **Интернет в demo не работает** — ядро начинает join, но `wifid` отказывает в ассоциации/DHCP; в отдельных прогонах Wi-Fi трафик шёл.
 - **Bluetooth не доставляет в приложения/Настройки** — TCC не строит identity приложения, промпт Allow не поднимается.
-- **Звука/микрофона нет** — железо подтверждено (кодек MT6358 + усилитель Awinic AW87519, аналоговый LOL, probe `redwood_mtkafe.c`), выход не реализован.
+- **Звук/микрофон — в работе.** Железо подтверждено и настроено: кодек MT6358, усилитель AW87519 (kspk-профиль), аналоговый LOL (−40 dB), AFE master + APLL1 + IRQ0 включены и читаются (`redwood_mtkafe.c`, `mtkafe=4`). Остался узел межсоединения DL1→ADDA_DL (infra audio bus) — DMA пока не идёт; детали и план: [docs/lancelot-audio-backend.md](docs/lancelot-audio-backend.md). Микрофон следующий.
 - Экран может гаснуть (auto-lock); натив 1080×2340 + UIKit-scale не сведены с тачем.
 - Камера, вибрация, GPS — в очереди ([docs/lancelot-peripherals.md](docs/lancelot-peripherals.md)).
 - Онлайн-сервисы Apple (активация, Apple ID, iCloud, App Store) — **не поддерживаются, не цель** (нет Secure Enclave).
@@ -54,6 +54,18 @@
 Ядро: внешнее дерево XNU + `xnu/redwood.patch` (`xnu-build.sh`). Userland: `userland/build.sh` (`GL=1 METAL=1` для графики).
 Образ системы: `tools/system-flash.sh` → `xnusys`. Загрузчик + сеанс: `tools/xnu-payload.sh` + `tools/xnu-smoke.sh`.
 Все команды по порядку: [docs/from-a-clone.md](docs/from-a-clone.md).
+
+> **Важно:** образ системы iOS (`system.apfs` для `xnusys`) **в репозитории не распространяется** — это проприетарный
+> userland Apple, его собираешь сам из своего IPSW (`ios165/fetch.sh`). Без него XNU загрузится, но launchd не найдёт
+> `libSystem.B.dylib`/`launchd` (ошибка «отсутствует libSystem.B.dylib»). Готового «boot.img с iOS» нет и быть не может:
+> `boot.img` несёт только загрузчик + ядро, корень iOS живёт в `xnusys` и является проприетарным.
+
+## Автотесты
+
+Автоматический стенд: одна загрузка → пробы → парсинг pstore → отчёт PASS/FAIL.
+`HAKIOS_SERIAL=<serial> ./tools/autotest.sh <profile>` (под WSL). Профили: `hwprobe`
+(акселерометр, фонарик, кодек, усилитель, батарея — 7 проверок), `audio3`/`audio4` (звук).
+Отчёты в `logs/autotest/<ts>-<profile>/report.{json,md}`. Описание: [docs/lancelot-autotest.md](docs/lancelot-autotest.md).
 
 ## Лицензия и правовое
 

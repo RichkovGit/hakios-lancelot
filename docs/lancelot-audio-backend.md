@@ -142,6 +142,67 @@ CG reads 0 — those writes need re-checking (SET-register readback semantics).
 Next: verify the mux/infra writes, then DL1 ring + ADDA DAC digital path, stage 3
 (LOL analog + AW87519 kspk profile + tone at −40 dB), then the microphone.
 
+## Stage 4 implementation (redwood_mtkafe.c, mtkafe=4 tone / mtkafe=5 sink)
+- DL1 ring: kmem_alloc_contig (3840 frames = 8x480, 16-byte align, zeroed), phys via
+  kvtophys, CPU writes through a write-combine alias (ml_io_map_wcomb) so the samples
+  land in DRAM for the AFE DMA. BASE 0x040 / END 0x048 / MSB 0xb00/0xb08/0xb04.
+- **Critical fix (run audio4 first attempt: CUR stuck at 0):** AFE_DAC_CON0 (0x010)
+  **bit0 is the master AFE enable**, bit1 is DL1_ON. Setting only bit1 (0x2) leaves the
+  whole AFE digital block off, so the memif never clocks and DL1_CUR stays 0 even though
+  every register reads back correctly. Vendor mt6768_afe_runtime_resume sets bit0
+  (`regmap_update_bits(AFE_DAC_CON0, 0x1, 0x1)`). Now set bit0 then bit1 (0x3) and verify
+  AFE_DAC_MON (0x2ec) bit0 AFE_ON_RETM == 0 (AFE out of retention).
+- Also from runtime_resume: AFE_CONN_24BIT (0x06c) = 0xffffffff, AFE_CONN_24BIT_1
+  (0x0994) = 0xffffffff (24-bit output ports), AFE_MEMIF_MSB (0x0cc) bit28 = 0 (force
+  8_24 memif format), AFE_AUD_PAD_TOP (0xe40) bit0 = 1.
+- Clocks: the audio gates are audiosyscon AUDIO_TOP_CON0 (reg0) bits 2/9/19/24/25/26/27
+  (no_setclr, RMW) -- confirmed against clk-mt6768.c audio0_cg_regs (sta_ofs 0). The
+  top muxes CLK_CFG_4 aud_intbus[1:0]=1, aud_1[8]=1, aud_engen1[17:16]=3 (immediate
+  clr/set). There is NO named infra audio gate in clk-mt6768.c; the earlier infra
+  0x88/0xa4 writes are not the audio bus gate and reading those SET regs returns 0.
+- **APLL1 enable (run audio4 second attempt: CUR still 0 even with AFE master on):** the
+  vendor PLL offsets (clk-mt6768.c) are APLL1_CON0=0x308 (PLL_EN bit0), CON1=0x30c
+  (postdiv[26:24]), CON2=0x310 (PCW), CON4=0x318 (PLL_PWR_ON bit0 / PLL_ISO_EN bit1),
+  tuner_en=0x0c bit0 (AP_PLL_CON3). Powering (0x318 bit0) is NOT enough: PWR read
+  0x80000003 = PWR+ISO+ack. Must clear ISO (0x318 bit1), then set PLL_EN (0x308 bit0),
+  wait ~20us to lock. Without PLL_EN the APLL1 outputs nothing, aud_engen1 (apll1_d8 =
+  24.576 MHz) is dead, the ADDA DL has no sample clock, and DL1_CUR stays 0. The earlier
+  draft's "APLL1 PWR 0x318 bit0" alone was incomplete.
+- **IRQ0 paces the memif (run audio4 third attempt: CUR still 0 with APLL1 enabled):** the
+  DL1 memif DMA does not free-run on DL1_ON alone. The vendor trigger (mtk_afe_fe_trigger)
+  sets IRQ0 after DL1_ON: AFE_IRQ_MCU_CNT0 (0x300) = period frames (480 = 10 ms),
+  AFE_IRQ_MCU_CON1 (0x2e4)[3:0] = fs (10 = 48k), then AFE_IRQ_MCU_CON0 (0x3a0) bit0
+  IRQ0_MCU_ON = 1. Without IRQ0_MCU_ON the memif cursor stays 0. END is programmed as
+  base + bytes - 1 (last byte), per mtk_memif_set_addr.
+- **Infra audio bus gate (run audio4 CONN probe: CONN3/4/0x998 all read 0, ignore writes):**
+  the AFE interconnect (CONN matrix) sits on the infra audio bus, gated by CLK_IFR_AUDIO
+  (GATE_IFR3 bit25: SET 0x88, STA 0x94) and CLK_IFR_AUDIO_26M_BCLK (GATE_IFR4 bit4: SET
+  0xa4, STA 0xac) in infracfg 0x1020e000. With these gated the CONN registers read 0 and
+  ignore writes, DL1 cannot route to ADDA_DL, and DL1_CUR stays 0. Enable both (SET, then
+  verify STA bit25/bit4; fallback write STA directly). This is the gate the early draft
+  called "infra CG_1/CG_2" -- the offsets were right but the readback used the SET regs
+  (always 0) instead of STA, hiding that the bus was off.
+- **CORRECTION: infracfg base is 0x10001000** (SCP/mtkcam), not the draft's 0x1020e000.
+  The wrong base read 0 and ignored writes, so the audio-bus gate never enabled and CONN
+  was inaccessible in every earlier run. Fixed in redwood_mtkafe.c.
+- MT6358 digital + LOL analog + AW87519 kspk profile as in the plan above; LOL gain
+  ZCD_CON1 (0x248a) = (g<<7)|g, g=0x1f (-40 dB) start. Every PMIC write read back.
+- Verification: autotest profile audio4 checks clocks, codec digital, LOL gain 0x0f9f,
+  amp profile, DL1 on (DAC_CON0 0x3), AFE master on, and **DL1_CUR advances** over the
+  tone (proves the DMA actually reads the ring). Physical listen still required.
+## Status (autotest audio4)
+Verified PASS: kernel boot, APLL1 powered+enabled (PLL_EN/ISO), MT6358 digital path,
+LOL analog gain 0x0f9f (-40 dB), AW87519 kspk profile, DL1_ON, IRQ0 MCU on, AFE master
+on, infra audio-bus gates enabled (STA1 0x2000000 / STA2 0x10, base 0x10001000).
+PENDING: with the infra audio bus enabled the AFE core registers (0x11220000) read 0
+and the DL1->ADDA_DL CONN matrix ignores writes, so DL1_CUR stays 0 (no DMA). The
+interconnect needs the audio infra bus brought up the way the vendor clk framework does
+(aud_infra_axi_clk / aud_infra_26m_clk via their regmap). Tried: raw ifr_audio bit25 SET
+(STA1 0x2000000) and TOPAXI_PROTECTEN_CLR 0x2a4/0x2ac = 0xffffffff -- both leave the AFE
+core reading 0, so the gate maps to a different bank/bit than the raw register. PARKED:
+the gate is left at default (AFE accessible); playback resumes once the bus init is matched. mtkafe=4/5 are experimental boot-args (off by
+default); mtkafe=1/2 read-only probes still work. Research delegated; resume here.
+
 ## Limits
 - No local vendor audio_param/firmware dumps — AW87519 profile from driver source;
   confirm exact main-mic AUx and aw87519_kspk.bin presence on the phone (stage 0).

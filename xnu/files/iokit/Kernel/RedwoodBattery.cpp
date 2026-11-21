@@ -123,7 +123,7 @@ RedwoodBattery::report(const struct redwood_battery_state * b)
 	setExternalConnected(b->external != 0);
 	setExternalChargeCapable(b->external != 0);
 	setIsCharging(charging);
-	flag("FullyCharged", b->external && (b->status == 4 || percent == 100));    /* POWER_SUPPLY_STATUS_FULL */
+	flag("FullyCharged", b->external && b->status == 4);    /* POWER_SUPPLY_STATUS_FULL: charger termination, not SOC alone */
 	flag("AppleRawExternalConnected", b->external != 0);
 	setCurrentCapacity((unsigned) percent);
 	setMaxCapacity(100);

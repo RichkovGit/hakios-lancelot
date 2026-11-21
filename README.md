@@ -38,7 +38,7 @@ session the phone returns to Android by itself. The iOS system image lives in it
 - **Jagged image at 1×** — 375×812 upscaled to 1080×2340; crisp only at 2× / native.
 - **No internet in the demo config** — the kernel begins joining but `wifid` refuses association / DHCP; Wi-Fi traffic did flow in separate runs.
 - **Bluetooth does not deliver to apps / Settings** — TCC does not construct the app's identity, so the Allow prompt never raises.
-- **No sound / microphone** — hardware confirmed (MT6358 codec + Awinic AW87519 amp, analog LOL route, `redwood_mtkafe.c` probe), audio output not implemented yet.
+- **Sound / microphone — in progress.** Hardware confirmed and configured: MT6358 codec, AW87519 amp (kspk profile), analog LOL (−40 dB), AFE master + APLL1 + IRQ0 enabled and read back (`redwood_mtkafe.c`, `mtkafe=4`). The DL1→ADDA_DL interconnect (infra audio bus) is the remaining node — DMA not yet running; details/plan: [docs/lancelot-audio-backend.md](docs/lancelot-audio-backend.md). Microphone next.
 - Screen may sleep (auto-lock); native 1080×2340 + UIKit scale not yet reconciled with touch.
 - Camera, vibration, GPS — queued (see [docs/lancelot-peripherals.md](docs/lancelot-peripherals.md)).
 - Apple online services (activation, Apple ID, iCloud, App Store) — **not supported, not a goal** (no Secure Enclave).
@@ -55,6 +55,18 @@ tracked. See [docs/lancelot-release-audit.md](docs/lancelot-release-audit.md).
 Kernel: external XNU source + `xnu/redwood.patch` (`xnu-build.sh`). User space: `userland/build.sh` (`GL=1 METAL=1` for graphics).
 System image: `tools/system-flash.sh` → `xnusys`. Loader + session: `tools/xnu-payload.sh` + `tools/xnu-smoke.sh`.
 Every command in order: [docs/from-a-clone.md](docs/from-a-clone.md).
+
+> **Important:** the iOS system image (`system.apfs` for `xnusys`) is **not distributed** in this repository — it is Apple's
+> proprietary userland, built yourself from your own IPSW (`ios165/fetch.sh`). Without it XNU boots but launchd cannot find
+> `libSystem.B.dylib`/`launchd` (the "missing libSystem.B.dylib" error). There is no ready "boot.img with iOS": `boot.img`
+> carries only the loader + kernel; the iOS root lives in `xnusys` and is proprietary.
+
+## Autotests
+
+Automated stand: one boot → probes → parse pstore → PASS/FAIL report.
+`HAKIOS_SERIAL=<serial> ./tools/autotest.sh <profile>` (under WSL). Profiles: `hwprobe`
+(accelerometer, flashlight, codec, amp, battery — 7 checks), `audio3`/`audio4` (sound).
+Reports in `logs/autotest/<ts>-<profile>/report.{json,md}`. See [docs/lancelot-autotest.md](docs/lancelot-autotest.md).
 
 ## License and legal
 
