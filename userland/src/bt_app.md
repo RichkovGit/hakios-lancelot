@@ -42,10 +42,23 @@ state 5 powered on, scanning). Touch flawless (35743 reports, 0 errors). Setting
 -- the PRIVATE BluetoothManager framework (which the Settings pane uses, distinct from
 CoreBluetooth/CBCentralManager) reports unavailable/not-powered, so the Settings toggle is
 grey. CoreBluetooth's path works but BluetoothManager's (BTSessionAttachWithQueue /
-MobileBluetooth) does not see the controller as available. Next: make BluetoothManager
-report available/powered -- likely the marconi-bt service name (bt_test: marconi-bt found=0)
-or the BTSessionAttach response bluetoothd gives a system client. The "bluetooth" service
-alone satisfies CoreBluetooth but not BluetoothManager. Remaining gaps from
+MobileBluetooth) does not see the controller as available. PRECISE BLOCKER (bt-manager-fix research + interactive log): the Infinix IOService gate
+PASSES (bm sharedInstance non-nil, bluetooth found=1, MG bluetooth=1, all 4 mach services
+resolve). The break is DOWNSTREAM: BluetoothManager's MBF (MobileBluetooth Framework, legacy/
+classic) session+power handshake with bluetoothd never completes. bluetoothd log shows ONLY
+com.apple.mediaserverd-MBF SessionAttach succeeds; NO Preferences-MBF / bt_test-MBF attach
+arrives, and the advertising stack reads "OFF" (classic off, LE on). CoreBluetooth works via
+a separate LE path (CBCentralManager state 5). BluetoothManager.powered reads the classic
+stack power -> OFF -> powered 0 -> grey toggle. BluetoothCapability=0 is a red herring;
+marconi-bt alias low-value (bluetooth fallback already found).
+FIX PATH: a bluetoothd injection hook (sibling of bt_entry_fix at inject.c ~2342, hooked
+bluetoothd+0x58e798) on the function answering the MBF power-state / session-attach reply,
+forcing powered-on / attach-success for system clients (type 0x20) -- safe since the
+controller is already on (CoreBluetooth state 5). Find the offset via bt_diag=1 call-trace
+(inject.c ~2563). PASS CRITERION: bluetoothd logs kCBMsgIdSessionAttach
+"com.apple.Preferences-MBF-..." and the toggle turns green. Diagnostic: client-side hook
+MobileBluetooth BTSessionAttachWithQueue (+0x89d88c) to log where it stops; check whether
+unsigned com.redwood.bt_test is rejected at XPC ("Failed to retrieve signing ID"). Remaining gaps from
 the baseline: pair confirmation (User_Confirmation_Request needs a tap on both sides),
 link-key storage, profiles A2DP/HFP/HID + audio, LE GATT connect.
 
