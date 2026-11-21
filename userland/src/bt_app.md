@@ -23,6 +23,23 @@ in place with `ldid -Ssrc/bt_test.entitlements obj/bt_test.app/bt_test`), then
 payload-only update leaves the old `/Applications`). Verify via bluetoothd scan
 logs + the app scanning without a prompt (the bypass means no Allow tap needed).
 
+## Settings Bluetooth pane (status)
+
+The pane's plumbing exists and was brought to a working state on the Infinix baseline
+(docs/bluetooth-x6826b.md, runs 735-762): green toggle, "Other Devices" list, classic
+inquiry, correct device name. The original blocker was MobileBluetooth looking up an
+IORegistry service "marconi-bt"/"bluetooth" that did not exist -> BTSessionAttachWithQueue
+error 9, BluetoothManager.init nil, grey toggle. Fixed by the kernel creating the
+"bluetooth" IOService (iokit/Kernel/RedwoodBluetooth.cpp RedwoodBluetoothNode, called from
+redwood_connsys.c connsys_bt_start once the controller answers 6 HCI commands; logs
+"RedwoodBluetooth: the service bluetooth is in the registry"). Device name comes from
+SCDynamicStoreCopyComputerName, set by net_test device_name (SCPreferencesSetComputerName).
+On lancelot the controller + app delivery are verified (btapp 5/5) and connsys_bt_start
+reaches "after bt" (the RedwoodBluetoothNode call site); the pane itself needs interactive
+verification (open Settings > Bluetooth: green toggle + device list). Remaining gaps from
+the baseline: pair confirmation (User_Confirmation_Request needs a tap on both sides),
+link-key storage, profiles A2DP/HFP/HID + audio, LE GATT connect.
+
 ## Device test (coordinate first)
 
 1. Set `BT_A2=1` for the build. This stages the app as
