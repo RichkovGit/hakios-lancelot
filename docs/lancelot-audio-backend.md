@@ -208,12 +208,15 @@ TWO active-low gate findings (the whole debug saga):
 The audio node has NO iommus binding -> memif DMA is physical. AFE_ON_RETM (DAC_MON 0x2ec
 bit0): 1 = active, 0 = retention/off (vendor polls ==0 to confirm off).
 iOS sink: mtkafe=5 registers redwood_audio_set_sink("mtk-afe"); the HAL Speaker plugin is
-confirmed loaded (mediaserverd opens /dev/redwood-audio). audio5 3/3. A system-sound trigger
-was added (inject_sb.c play_system_sound, com.redwood.sound notification + sound_test=1
-auto-play at 25 s) to feed the sink, but sink taken stayed 0: mediaserverd did not route the
-system sound to the redwood-audio engine. sink-fed (iOS audio actually reaching the speaker)
-needs the audio_plugin.c IOAudio engine write/start path investigated, or interactive audio.
-The kernel tone path (mtkafe=4) is verified playing regardless. Volume: mtkafe_gain=N (LOL PGA index, cap -10 dB=0x12); audio4g 12/12 at -10 dB.
+confirmed loaded (mediaserverd opens /dev/redwood-audio). audio5 3/3. To feed the sink, added:
+inject_sb.c play_system_sound (com.redwood.sound notification + sound_test=1 auto-play), and
+inject_media.c set_default_speaker (CoreAudio HAL: list devices, find UID "Speaker", set
+kAudioHardwarePropertyDefaultOutputDevice) run from a pthread at 20/40 s (mediaserverd services
+XPC not libdispatch, and its sandbox blocks kern.bootargs). mediaserverd does not crash, but
+sink taken stayed 0 and no routing marker logged across 4 builds -- the default-output route
+and/or the plugin IO start needs interactive mediaserverd/CoreAudio debugging (os_log of
+mediaserverd, whether StartIO/WriteMix is ever called). PARKED per the no-circles rule.
+The kernel tone path (mtkafe=4) is verified playing regardless; the sink + DMA are ready. Volume: mtkafe_gain=N (LOL PGA index, cap -10 dB=0x12); audio4g 12/12 at -10 dB.
 MICROPHONE RECORD DMA WORKING (mtkmic=1, autotest mic 4/4, run 20261122-004136): MT6358
 ADC1/AIN0 (MICBIAS0 1.9V, PGA idx3) -> ADDA UL -> VUL12 memif (record DMA) -> mono drain
 -> redwood_mic_feed -> /dev/redwood-mic ring (redwood_mic_external_up, no DSP). VUL12 CUR

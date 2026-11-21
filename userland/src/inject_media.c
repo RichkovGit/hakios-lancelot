@@ -556,6 +556,51 @@ camera_app_probe(void)
 	});
 }
 
+/* ---- route iOS audio to the Redwood Speaker: make it the default output device ---- */
+static void *routing_thread(void *arg);
+typedef UInt32 RedAudioObjectID;
+typedef struct { UInt32 selector, scope, element; } RedAudioAddr;
+static void
+set_default_speaker(void)
+{
+	void *ca = dlopen("/System/Library/Frameworks/CoreAudio.framework/CoreAudio", RTLD_NOW);
+	if (ca == NULL) { say("redwood: media: no CoreAudio (%s)\n", dlerror()); return; }
+	int (*get)(RedAudioObjectID, const RedAudioAddr*, UInt32, const void*, UInt32*, void*) = dlsym(ca, "AudioObjectGetPropertyData");
+	int (*set)(RedAudioObjectID, const RedAudioAddr*, UInt32, const void*, UInt32, const void*) = dlsym(ca, "AudioObjectSetPropertyData");
+	if (get == NULL || set == NULL) { say("redwood: media: no AudioObject symbols\n"); return; }
+	RedAudioAddr devs = { 0x64657623, 0x676c6f62, 0 };   /* kAudioHardwarePropertyDevices, glob */
+	UInt32 size = 0;
+	if (get(1, &devs, 0, NULL, &size, NULL) != 0 || size == 0) { say("redwood: media: no device list\n"); return; }
+	UInt32 n = size / sizeof(RedAudioObjectID);
+	RedAudioObjectID *list = malloc(size);
+	if (list == NULL) return;
+	get(1, &devs, 0, NULL, &size, list);
+	RedAudioObjectID speaker = 0;
+	for (UInt32 i = 0; i < n; i++) {
+		RedAudioAddr uidp = { 0x75696420, 0x676c6f62, 0 };   /* kAudioDevicePropertyDeviceUID */
+		CFStringRef uid = NULL; UInt32 us = sizeof(uid);
+		if (get(list[i], &uidp, 0, NULL, &us, &uid) == 0 && uid != NULL) {
+			if (CFStringFind(uid, CFSTR("Speaker"), 0).location != kCFNotFound) speaker = list[i];
+			CFRelease(uid);
+		}
+	}
+	free(list);
+	if (speaker == 0) { say("redwood: media: no Speaker device among %u\n", (unsigned)n); return; }
+	RedAudioAddr dout = { 0x644f7574, 0x676c6f62, 0 };   /* kAudioHardwarePropertyDefaultOutputDevice */
+	int r = set(1, &dout, 0, NULL, sizeof(speaker), &speaker);
+	say("redwood: media: default output -> Speaker (obj %u): %d\n", (unsigned)speaker, r);
+}
+
+static void *
+routing_thread(__unused void *arg)
+{
+	sleep(20);
+	set_default_speaker();
+	sleep(20);
+	set_default_speaker();
+	return NULL;
+}
+
 __attribute__((constructor))
 static void
 redwood_media_init(void)
@@ -597,5 +642,12 @@ redwood_media_init(void)
 			pthread_create(&thread, NULL, media_threads, (void *)(uintptr_t)seconds);
 			pthread_detach(thread);
 		}
+	}
+	/* mediaserverd services XPC, not libdispatch queues, and its sandbox blocks kern.bootargs:
+	 * a real thread (like media_threads) routes unconditionally to the Redwood Speaker. */
+	{
+		pthread_t rt;
+		if (pthread_create(&rt, NULL, routing_thread, NULL) == 0)
+			pthread_detach(rt);
 	}
 }
