@@ -6,6 +6,16 @@ until the supported paths below pass on this device.
 
 ## Current status
 
+**Verified by the autotest stand (`tools/autotest.sh`, reports in `logs/autotest/`):**
+- `hwprobe` 7/7: accelerometer/SCP, flashlight GPIO, MT6358 codec id, AW87519 amp id, battery telemetry.
+- `audio4` / `audio4g` 12/12: speaker playback DMA (DL1→ADDA DAC→MT6358 LOL→AW87519), 1 kHz tone plays, volume control (`mtkafe_gain`). The audiosyscon/infra audio gates are active-low — kept at default.
+- `mic` 4/4: microphone record DMA (MT6358 ADC1→ADDA UL→VUL12), ~48k mono frames/s into `/dev/redwood-mic`.
+- `btapp` 5/5: Bluetooth app delivery — the entitled `bt_test` app launches from SpringBoard, registers with `bluetoothd`, `tccRequired : 0` (TCC bypass), scans.
+- `conn` 4/4: Wi-Fi associated + DHCP + traffic carried.
+- `demo` 5/5: Mali GPU up + ran a job, SpringBoard launched, no panic.
+- `audio5` 3/3: iOS audio sink registered + DL1 DMA running (sink-fed pending mediaserverd routing).
+Pending interactive verification: physical audio listen/record, iOS audio reaching the speaker (sink-fed), touch 60 fps feel, native-resolution UIKit layout, BT Settings pane.
+
 - XNU boots and hands control back to Android. On the latest diagnostic run,
   Wi-Fi associated and DHCP assigned an address.
 - The panel scans out at 1080 × 2340; the current baseline renders at 375 × 812
