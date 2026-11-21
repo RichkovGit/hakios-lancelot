@@ -41,6 +41,13 @@ Thermal/stability over long sessions + the 60 fps feel still need interactive ve
   bilinear downscale. Touch mapping (picture_x/y normalize 0-65535) is fbscale-independent
   and correct for native fbfit=0. Avoid fbfit=1/3 (letterbox).
 
+## VERIFIED: native resolution (autotest native 4/4, 20261122-030840)
+`fbscale=0 fbwidth=1080 fbheight=2340 fbfit=0 fb_cached=1` + raised clocks:
+`MiniIOMobileFramebuffer: display 1080x2340 on a panel of 1080x2340 (4352 bytes per row)`,
+Mali up step 6/6, SpringBoard launched, clean return, no panic over 100 s. Native render
++ stability verified objectively; UIKit layout (360x780 points) + sustained fps feel still
+need interactive verification.
+
 ## Recommended next (interactive)
 1. Re-test native gated on SpringBoard (`waitproc SpringBoard` + settled frame before
    tapping): `fbscale=0 fbwidth=1080 fbheight=2340 fbfit=0 fb_filter=0 fb_threads=6

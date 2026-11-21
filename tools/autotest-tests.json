@@ -685,6 +685,50 @@
           "fail": []
         }
       ]
+    },
+    "native": {
+      "secs": 100,
+      "cores": 4,
+      "args": "cpus=4 touchscreen=3 fbscale=0 fbwidth=1080 fbheight=2340 fbfit=0 fb_filter=0 fb_threads=6 fb_beat=0 fb_cached=1 mali=1 gl=1 metal=1 buttons=2 mtk_cpufreq=2 mali_mhz=800 scp_step=7 mtktorch=3 mtkbatt=2 bt_hci_trace=0 bt_tx_trace=0",
+      "tests": [
+        {
+          "id": "kernel-boot",
+          "desc": "XNU boots and returns cleanly at native + raised clocks",
+          "pass": [
+            "kept for the host by the kernel"
+          ],
+          "fail": [
+            "Kernel panic",
+            "panic\\("
+          ]
+        },
+        {
+          "id": "native-surface",
+          "desc": "1080x2340 native surface allocated",
+          "pass": [
+            "display 1080x2340 on a panel of 1080x2340"
+          ],
+          "fail": []
+        },
+        {
+          "id": "gpu-up",
+          "desc": "Mali GPU up (step 6/6)",
+          "pass": [
+            "mali: came up to step 6 of 6"
+          ],
+          "fail": [
+            "MMU fault [1-9]"
+          ]
+        },
+        {
+          "id": "springboard",
+          "desc": "SpringBoard launched at native resolution",
+          "pass": [
+            "SpringBoard"
+          ],
+          "fail": []
+        }
+      ]
     }
   }
 }
