@@ -375,9 +375,9 @@
       ]
     },
     "audio5": {
-      "secs": 70,
+      "secs": 80,
       "cores": 4,
-      "args": "cpus=4 touchscreen=3 fbscale=2 fbfit=0 mali=1 gl=1 metal=1 mtkafe=5 mtkafe_secs=20 scp_step=7 mtktorch=3 mtkbatt=2 bt_hci_trace=0 bt_tx_trace=0",
+      "args": "cpus=4 touchscreen=3 fbscale=2 fbfit=0 mali=1 gl=1 metal=1 mtkafe=5 mtkafe_secs=20 scp_step=7 mtktorch=3 mtkbatt=2 bt_hci_trace=0 bt_tx_trace=0 sound_test=1",
       "tests": [
         {
           "id": "kernel-boot",

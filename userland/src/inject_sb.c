@@ -1142,6 +1142,21 @@ launch_bt(void)
 	});
 }
 
+/* Play a system sound through the audio server: verifies the iOS audio path reaches the
+ * speaker sink (mtkafe=5). AudioServicesPlaySystemSound from AudioToolbox. */
+static void
+play_system_sound(void)
+{
+	void *at = dlopen("/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox", RTLD_NOW);
+	void (*play)(uint32_t) = at != NULL ? (void (*)(uint32_t))dlsym(at, "AudioServicesPlaySystemSound") : NULL;
+	if (play != NULL) {
+		play(1007);
+		say("redwood: sound: AudioServicesPlaySystemSound(1007) called (sink test)\n");
+	} else {
+		say("redwood: sound: no AudioServicesPlaySystemSound (%s)\n", at != NULL ? "symbol" : dlerror());
+	}
+}
+
 /*
  * Control Center's glyphs whole from its first frames. Its modules and their parts fade in as it
  * comes down: opacity animations, mostly springs that take up to a second to settle at 1. While a
@@ -1864,6 +1879,17 @@ redwood_springboard_init(void)
 	notify_register_dispatch("com.redwood.launch", &token, dispatch_get_main_queue(), ^(__unused int t) {
 		launch_bt();
 	});
+	notify_register_dispatch("com.redwood.sound", &token, dispatch_get_main_queue(), ^(__unused int t) {
+		play_system_sound();
+	});
+	{
+		char args[1024] = ""; size_t sz = sizeof(args) - 1;
+		if (sysctlbyname("kern.bootargs", args, &sz, NULL, 0) == 0 && strstr(args, "sound_test=1") != NULL) {
+			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 25ULL * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+				play_system_sound();
+			});
+		}
+	}
 	/*
 	 * Belt-and-suspenders unlock. The user can always swipe up to open the home screen -- that
 	 * works fine when the touch driver is doing its job. But if touch is still probing, has
