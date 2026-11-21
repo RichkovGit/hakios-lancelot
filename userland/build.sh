@@ -102,6 +102,9 @@ if [ -n "$BT_A2" ]; then
 	$BT_SCAN -framework UIKit -framework Foundation -framework CoreBluetooth -framework IOKit \
 		-Wl,-adhoc_codesign -sectcreate __TEXT __info_plist src/bt_test.plist \
 		-o "$BT_APP/bt_test" src/bt_app.m obj/bt_a2_scan.o
+	# the Bluetooth TCC bypass entitlement, so the app can scan without an Allow prompt
+	${LDID:-ldid} -Ssrc/bt_test.entitlements "$BT_APP/bt_test" 2>/dev/null ||
+		echo "build.sh: no ldid: bt_test.app lacks the Bluetooth TCC entitlement"
 	install -m 0644 src/bt_test.plist "$BT_APP/Info.plist"
 	$BT_SCAN -framework Foundation -framework CoreBluetooth -framework IOKit \
 		-Wl,-adhoc_codesign -sectcreate __TEXT __info_plist src/bt_test.plist \
