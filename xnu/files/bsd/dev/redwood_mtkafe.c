@@ -48,6 +48,7 @@ static volatile uint32_t *pwrap;
 static vm_offset_t gpio_base;
 static uint32_t level;
 static uint32_t tone_secs = 6;
+static uint32_t lol_gain = 0x1f;   /* LOL PGA index: 0x1f=-40 dB (safe), 0x12=18~-10 dB; mtkafe_gain=N */
 
 static inline uint32_t rd(vm_offset_t base, uint32_t at) { return *(volatile uint32_t *)(base + at); }
 static inline void wr(vm_offset_t base, uint32_t at, uint32_t v) { *(volatile uint32_t *)(base + at) = v; }
@@ -485,7 +486,7 @@ static bool
 playback_up(void)
 {
 	codec_digital();
-	lol_analog(0x1f);
+	lol_analog((uint16_t)lol_gain);
 	if (!amp_kspk()) return false;
 	dl1_start();
 	return true;
@@ -613,6 +614,9 @@ redwood_mtkafe_init(void)
 	}
 	PE_parse_boot_argn("mtkafe_secs", &tone_secs, sizeof(tone_secs));
 	if (tone_secs == 0 || tone_secs > 30) tone_secs = 6;
+	PE_parse_boot_argn("mtkafe_gain", &lol_gain, sizeof(lol_gain));
+	if (lol_gain < 0x12) lol_gain = 0x12;   /* lower index = louder; cap at -10 dB (0x12) until physically verified */
+	if (lol_gain > 0x1f) lol_gain = 0x1f;   /* 0x1f = -40 dB, the quietest */
 	if (kernel_thread_start(probe_thread, NULL, &thread) == KERN_SUCCESS) {
 		thread_deallocate(thread);
 	}

@@ -417,6 +417,122 @@
           "fail": []
         }
       ]
+    },
+    "audio4g": {
+      "secs": 60,
+      "cores": 4,
+      "args": "cpus=4 touchscreen=3 fbscale=2 fbfit=0 mali=1 gl=1 metal=1 mtkafe=4 mtkafe_secs=6 bt_hci_trace=0 bt_tx_trace=0 mtkafe_gain=18",
+      "tests": [
+        {
+          "id": "kernel-boot",
+          "desc": "XNU boots and returns cleanly",
+          "pass": [
+            "kept for the host by the kernel"
+          ],
+          "fail": [
+            "Kernel panic",
+            "panic\\("
+          ]
+        },
+        {
+          "id": "apll1-powered",
+          "desc": "APLL1 powered for 48k audio",
+          "pass": [
+            "APLL1 PCW 0x78fd526.*PWR 0x[89a-f]"
+          ],
+          "fail": []
+        },
+        {
+          "id": "apll1-enabled",
+          "desc": "APLL1 PLL enabled (CON0 bit0)",
+          "pass": [
+            "APLL1 PCW.*CON0 0x[0-9a-f]*[13579bf]"
+          ],
+          "fail": []
+        },
+        {
+          "id": "codec-digital",
+          "desc": "MT6358 digital playback path set",
+          "pass": [
+            "MT6358 digital playback path set"
+          ],
+          "fail": []
+        },
+        {
+          "id": "lol-gain",
+          "desc": "LOL analog up at -10 dB (gain control, ZCD_CON1 0x0912)",
+          "pass": [
+            "gain ZCD_CON1 0x0912"
+          ],
+          "fail": [
+            "mismatch"
+          ]
+        },
+        {
+          "id": "amp-profile",
+          "desc": "AW87519 kspk profile written",
+          "pass": [
+            "AW87519 kspk profile written"
+          ],
+          "fail": [
+            "kspk aborted",
+            "write failed"
+          ]
+        },
+        {
+          "id": "dl1-on",
+          "desc": "DL1 memif enabled (DAC_CON0 bit1)",
+          "pass": [
+            "DL1 on DAC_CON0 0x3"
+          ],
+          "fail": []
+        },
+        {
+          "id": "irq0-on",
+          "desc": "IRQ0 MCU on (paces DL1 memif)",
+          "pass": [
+            "IRQ_CON0 0x[0-9a-f]*[13579bf]"
+          ],
+          "fail": []
+        },
+        {
+          "id": "conn-route",
+          "desc": "DL1->ADDA_DL interconnect routed (CONN3 0x20 / CONN4 0x40)",
+          "pass": [
+            "route CONN3 0x20 CONN4 0x40"
+          ],
+          "fail": []
+        },
+        {
+          "id": "afe-master",
+          "desc": "AFE master block active (AFE_ON_RETM bit0=1)",
+          "pass": [
+            "AFE_ON_RETM bit0=1"
+          ],
+          "fail": []
+        },
+        {
+          "id": "dma-ran",
+          "desc": "DL1 DMA consumed frames (CUR advanced)",
+          "pass": [
+            "DL1 DMA advanced"
+          ],
+          "fail": [
+            "DMA NOT advancing"
+          ]
+        },
+        {
+          "id": "tone",
+          "desc": "1 kHz tone played and stopped cleanly",
+          "pass": [
+            "TONE 1 kHz",
+            "mtkafe: tone done"
+          ],
+          "fail": [
+            "bring-up FAILED"
+          ]
+        }
+      ]
     }
   }
 }
