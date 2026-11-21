@@ -631,6 +631,60 @@
           "fail": []
         }
       ]
+    },
+    "perf": {
+      "secs": 90,
+      "cores": 4,
+      "args": "cpus=4 touchscreen=3 fbscale=2 fbfit=0 fb_filter=0 fb_threads=6 fb_beat=0 mali=1 gl=1 metal=1 buttons=2 mtk_cpufreq=2 mali_mhz=800 scp_step=7 mtktorch=3 mtkbatt=2 touch_lat=1 bt_hci_trace=0 bt_tx_trace=0",
+      "tests": [
+        {
+          "id": "kernel-boot",
+          "desc": "XNU boots and returns cleanly (raised clocks stable)",
+          "pass": [
+            "kept for the host by the kernel"
+          ],
+          "fail": [
+            "Kernel panic",
+            "panic\\("
+          ]
+        },
+        {
+          "id": "cpufreq-raised",
+          "desc": "A75 cores raised to 2000 MHz",
+          "pass": [
+            "cpufreq: A75s now at 1999 MHz"
+          ],
+          "fail": [
+            "left as it is"
+          ]
+        },
+        {
+          "id": "gpu-raised",
+          "desc": "Mali GPU raised to 800 MHz",
+          "pass": [
+            "gpufreq: the GPU at 800 MHz"
+          ],
+          "fail": []
+        },
+        {
+          "id": "gpu-up",
+          "desc": "Mali GPU up (step 6/6)",
+          "pass": [
+            "mali: came up to step 6 of 6"
+          ],
+          "fail": [
+            "MMU fault [1-9]"
+          ]
+        },
+        {
+          "id": "springboard",
+          "desc": "SpringBoard launched at raised clocks",
+          "pass": [
+            "SpringBoard"
+          ],
+          "fail": []
+        }
+      ]
     }
   }
 }
