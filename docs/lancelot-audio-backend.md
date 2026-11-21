@@ -207,8 +207,15 @@ TWO active-low gate findings (the whole debug saga):
    sample clock runs, IRQ0 counts, ADDA receives data, and the DL1 memif DMA reads the ring.
 The audio node has NO iommus binding -> memif DMA is physical. AFE_ON_RETM (DAC_MON 0x2ec
 bit0): 1 = active, 0 = retention/off (vendor polls ==0 to confirm off).
-NEXT: mtkafe=5 registers the iOS audio sink (redwood_audio_set_sink) so system sound plays
-(not just the test tone); then volume ramp + microphone. mtkafe=4/5 experimental boot-args.
+iOS sink: mtkafe=5 registers redwood_audio_set_sink("mtk-afe"); the HAL Speaker plugin is
+confirmed loaded (mediaserverd opens /dev/redwood-audio). audio5 3/3 (sink-fed needs audio
+activity). Volume: mtkafe_gain=N (LOL PGA index, cap -10 dB=0x12); audio4g 12/12 at -10 dB.
+MICROPHONE RECORD DMA WORKING (mtkmic=1, autotest mic 4/4, run 20261122-004136): MT6358
+ADC1/AIN0 (MICBIAS0 1.9V, PGA idx3) -> ADDA UL -> VUL12 memif (record DMA) -> mono drain
+-> redwood_mic_feed -> /dev/redwood-mic ring (redwood_mic_external_up, no DSP). VUL12 CUR
+advances, ~48k mono frames/s fed (142168 -> 426036). Same AFE-master bit0 fix as DL1.
+Mic content (non-silent) + iOS recording need physical/interactive verification.
+NEXT: physical listen/record verification; iOS audio activity for sink-fed; mic to iOS apps.
 
 ## Limits
 - No local vendor audio_param/firmware dumps — AW87519 profile from driver source;

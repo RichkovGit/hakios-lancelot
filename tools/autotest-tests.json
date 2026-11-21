@@ -533,6 +533,50 @@
           ]
         }
       ]
+    },
+    "mic": {
+      "secs": 70,
+      "cores": 4,
+      "args": "cpus=4 touchscreen=3 fbscale=2 fbfit=0 mali=1 gl=1 metal=1 mtkmic=1 mtkafe_secs=15 mtkbatt=2 bt_hci_trace=0 bt_tx_trace=0",
+      "tests": [
+        {
+          "id": "kernel-boot",
+          "desc": "XNU boots and returns cleanly",
+          "pass": [
+            "kept for the host by the kernel"
+          ],
+          "fail": [
+            "Kernel panic",
+            "panic\\("
+          ]
+        },
+        {
+          "id": "mic-up",
+          "desc": "mic record path up (ADC + VUL12)",
+          "pass": [
+            "mtkmic: up"
+          ],
+          "fail": [
+            "no ring memory"
+          ]
+        },
+        {
+          "id": "mic-route",
+          "desc": "ADDA_UL->VUL12 routed (CONN21 bit3)",
+          "pass": [
+            "CONN21 0x[0-9a-f]*[89ab]"
+          ],
+          "fail": []
+        },
+        {
+          "id": "mic-dma",
+          "desc": "VUL12 record DMA + drain fed frames",
+          "pass": [
+            "mtkmic: fed [1-9]\\d*"
+          ],
+          "fail": []
+        }
+      ]
     }
   }
 }

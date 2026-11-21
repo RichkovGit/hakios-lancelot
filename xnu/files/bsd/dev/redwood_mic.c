@@ -1467,6 +1467,7 @@ static uint64_t ring_read;                      /* frames taken from it (one rea
 static bool ring_primed;                        /* the reader is RING_KEEP behind; false after it ran dry */
 static uint64_t ring_skipped, ring_dry;         /* frames skipped, reads that found too little: said when iOS stops */
 static volatile uint32_t ios_wants;             /* the device is open */
+static bool mic_external;                       /* fed by an external driver (MTK AFE VUL12), not the DSP */
 static volatile bool stopping;                  /* the run ends (redwood_mic_dsp_down()) */
 
 static void
@@ -1478,6 +1479,14 @@ ring_put(const int16_t *samples, uint32_t count)
 		ring[(at + i) % RING_FRAMES] = samples[i];
 	}
 	__atomic_store_n(&ring_written, at + count, __ATOMIC_RELEASE);
+}
+
+/* an external driver (the MTK AFE record path) gives the microphone's mono samples here */
+void
+redwood_mic_feed(const int16_t *samples, uint32_t count)
+{
+	if (ring != NULL && ios_wants && !stopping)
+		ring_put(samples, count);
 }
 
 static int
@@ -1755,15 +1764,15 @@ for_ios(void)
 		began = mach_absolute_time();
 		say("mic: iOS records (%u): the path up%s\n", recordings, quiet ? " (the lines that say all went well are not said again)" :
 		    "");
-		if (path_up()) {
+		if (!mic_external && path_up()) {
 			listen(true);
 		}
-		failed = broken;
+		failed = mic_external ? false : broken;
 		absolutetime_to_nanoseconds(mach_absolute_time() - began, &ns);
 		say("mic: iOS's recording %u %s after %llu.%llu s; last: %s; %llu frames skipped as too late, %llu reads found too little\n",
 		    recordings, failed ? "BROKE OFF" : "ended", ns / NSEC_PER_SEC, ns % NSEC_PER_SEC / (NSEC_PER_SEC / 10), last_write,
 		    ring_skipped, ring_dry);
-		undo();
+		if (!mic_external) undo();
 		lck_mtx_unlock(&mic_lock);
 		if (failed) {
 			broken = false;
@@ -1786,7 +1795,7 @@ mic_thread(__unused void *parameter, __unused wait_result_t result)
 	    level == 2 ? "the codec brought up to answer on SoundWire, nothing of it set; then all undone" :
 	    level == 3 ? "the main microphone, as Android records from it, listened to; then all undone" :
 	    "the main microphone for iOS (/dev/redwood-mic), up while iOS records");
-	if (level == 4) {
+	if (level == 4 || level == 5) {
 		for_ios();
 	} else {
 		lck_mtx_lock(&mic_lock);
@@ -1827,6 +1836,25 @@ redwood_mic_dsp_up(void)
 	PE_parse_boot_argn("mic_test", &test_bits, sizeof(test_bits));
 	PE_parse_boot_argn("mic_tap", &tap, sizeof(tap));
 	mic_secs = mic_secs < 1 ? 1 : mic_secs > 600 ? 600 : mic_secs;
+	running = true;
+	if (kernel_thread_start(mic_thread, NULL, &thread) != KERN_SUCCESS) {
+		running = false;
+		return;
+	}
+	thread_deallocate(thread);
+}
+
+/* the MTK AFE record path uses the mic ring/device without the DSP: create them and keep
+ * them available; the external driver feeds redwood_mic_feed() while iOS records. */
+void
+redwood_mic_external_up(void)
+{
+	thread_t thread;
+
+	if (running)
+		return;
+	level = 5;
+	mic_external = true;
 	running = true;
 	if (kernel_thread_start(mic_thread, NULL, &thread) != KERN_SUCCESS) {
 		running = false;

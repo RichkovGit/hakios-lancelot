@@ -131,6 +131,8 @@ void redwood_adsp_apr_events_second(redwood_apr_events_t handler);
 /* boot-arg rec_sound_mic=1: the recording (rec_sound=N) has what the microphone hears (given with redwood_audio_record_fed()) */
 bool redwood_audio_recording_mic(void);
 void redwood_mic_dsp_up(void);          /* the DSP's audio services are up (adsp=1): boot-arg mic=N begins */
+void redwood_mic_external_up(void);     /* MTK AFE record path: make /dev/redwood-mic without the DSP */
+void redwood_mic_feed(const int16_t *samples, uint32_t count);  /* external driver gives mono mic samples */
 void redwood_mic_dsp_down(void);        /* before the DSP is shut down at the run's end: what the microphones' path asked for given back */
 #endif
 

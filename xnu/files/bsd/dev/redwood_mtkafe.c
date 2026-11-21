@@ -604,19 +604,118 @@ probe_thread(__unused void *parameter, __unused wait_result_t result)
 	thread_terminate(current_thread());
 }
 
+/* ---- mtkmic=N: the microphone. MT6358 ADC1/AIN0 -> ADDA UL -> VUL12 memif (record DMA)
+ * -> mono ring -> /dev/redwood-mic (redwood_mic_feed). Needs the audio clocks (clock_enable).
+ * Register plan from docs/lancelot-audio-backend.md (vendor TurnOnADcPowerACC + VUL12). ---- */
+static uint32_t mtkmic_level;
+static uint64_t mic_phys;
+static vm_offset_t mic_rd;                 /* uncached alias: the hardware writes the ring, we read */
+static uint32_t mic_frames = 3840;
+static uint32_t mic_drain;                 /* frame index drained up to */
+static uint64_t mic_fed;
+
+static bool
+mic_up(void)
+{
+	uint32_t bytes = mic_frames * 2, v;       /* mono int16 */
+	vm_offset_t mem = 0;
+	if (kmem_alloc_contig(kernel_map, &mem, round_page(bytes), PAGE_MASK, 0, 0,
+	    KMA_KOBJECT | KMA_ZERO | KMA_DATA, VM_KERN_MEMORY_IOKIT) != KERN_SUCCESS) {
+		redwood_keep("mtkmic: no ring memory"); return false;
+	}
+	mic_phys = kvtophys(mem); mic_rd = ml_io_map(mic_phys, round_page(bytes));
+	/* AFE ADDA UL path */
+	wr(g_afe, 0xe40, 0x31);                    /* AUD_PAD_TOP */
+	wr(g_afe, 0xe00, 0x0);                     /* MTKAIF_CFG0 protocol 1 */
+	v = rd(g_afe, 0x120); wr(g_afe, 0x120, v & ~1u);   /* ADDA_TOP_CON0 bit0=0 */
+	wr(g_afe, 0x114, 0x60401);                 /* UL_SRC_CON0 */
+	v = rd(g_afe, 0xe20); wr(g_afe, 0xe20, v & ~1u);   /* MTKAIF_RX_CFG0 bit0=0 (AMIC) */
+	/* MT6358 ADC analog (TurnOnADcPowerACC) */
+	pwm(0x2422, 1u << 5, 1u << 5);             /* AUDDEC_ANA_CON13 bit5=1 */
+	pw(0x238e, 0x0000);                        /* AUDENC_ANA_CON3 */
+	pwm(0x239c, 0x2500, 0x2500);               /* AUDENC_ANA_CON14 LCLDO_ENC 1.8V */
+	pwm(0x2292, 0xbf, 0);                      /* PMIC_AUDIO_TOP_CON0 */
+	pw(0x2290, 0x0000);                        /* PMIC_AFE_TOP_CON0 */
+	pwm(0x2288, 0x4001, 0x0001);               /* AFE_UL_DL_CON0=1 */
+	pw(0x22b4, 0x0000);                        /* PMIC_AFE_ADDA_MTKAIF_CFG0 */
+	pw(0x22cc, 0x3100);                        /* AFE_AUD_PAD_TOP */
+	pw(0x228c, 0x0000);                        /* AFE_UL_SRC_CON0_H */
+	pw(0x228e, 0x0001);                        /* AFE_UL_SRC_CON0_L */
+	pw(0x00de, 0x0249);                        /* GPIO_MODE3 */
+	pw(0x239a, 0x0021);                        /* MICBIAS0 1.9V (route set above) */
+	pw(0x2388, 0x0041);                        /* ADC1 PGA idx3 + enable */
+	pw(0x2388, 0x5041);                        /* ADC1 CON0 */
+	/* VUL12 record memif */
+	wr(g_afe, 0x350, (uint32_t)mic_phys);
+	wr(g_afe, 0x358, (uint32_t)(mic_phys + bytes - 1));
+	wr(g_afe, 0xb80, (uint32_t)(mic_phys >> 32));
+	wr(g_afe, 0xb88, (uint32_t)((mic_phys + bytes - 1) >> 32));
+	wr(g_afe, 0xb8c, (uint32_t)(mic_phys >> 32));
+	v = rd(g_afe, 0x010); wr(g_afe, 0x010, (v & ~(0xfu << 20)) | (10u << 20));  /* fs 48k */
+	v = rd(g_afe, 0x010); wr(g_afe, 0x010, v | (1u << 10));   /* mono */
+	v = rd(g_afe, 0x3f8); wr(g_afe, 0x3f8, v & ~(1u << 12));  /* HD off */
+	v = rd(g_afe, 0x470); wr(g_afe, 0x470, v | (1u << 3));    /* CONN21: ADDA_UL_CH1 -> VUL12 */
+	v = rd(g_afe, 0x474); wr(g_afe, 0x474, v | (1u << 4));    /* CONN22: ADDA_UL_CH2 */
+	v = rd(g_afe, 0x010); wr(g_afe, 0x010, v | 1u);              /* AFE master enable (bit0) */
+	spin_us(200);
+	v = rd(g_afe, 0x010); wr(g_afe, 0x010, v | (1u << 9));    /* VUL12_ON */
+	redwood_keep("mtkmic: up, ring phys %#llx, DAC_CON0 %#x CONN21 %#x CONN22 %#x CUR %#x", mic_phys, rd(g_afe, 0x010), rd(g_afe, 0x470), rd(g_afe, 0x474), rd(g_afe, 0x35c));
+	return true;
+}
+
+static void
+mic_drain_thread(__unused void *parameter, __unused wait_result_t result)
+{
+	int16_t mono[480];
+	for (unsigned t = 0; t < tone_secs * 100; t++) {
+		delay_for_interval(10, NSEC_PER_MSEC);
+		uint32_t cur = rd(g_afe, 0x35c);
+		uint32_t hw = ((cur - (uint32_t)mic_phys) >> 1) % mic_frames;   /* mono: 2 bytes/frame */
+		uint32_t avail = (hw - mic_drain + mic_frames) % mic_frames;
+		if (avail > mic_frames - 1) avail = mic_frames - 1;
+		volatile int16_t *p = (volatile int16_t *)mic_rd;
+		uint32_t n = 0;
+		while (n < avail && n < 480) { mono[n] = p[(mic_drain + n) % mic_frames]; n++; }
+		if (n) { redwood_mic_feed(mono, n); mic_fed += n; mic_drain = (mic_drain + n) % mic_frames; }
+		if ((t % 100) == 99) redwood_keep("mtkmic: fed %llu frames (CUR %#x)", mic_fed, cur);
+	}
+	redwood_keep("mtkmic: drain done, fed %llu frames", mic_fed);
+	thread_terminate(current_thread());
+}
+
+static void
+mtkmic_thread(__unused void *parameter, __unused wait_result_t result)
+{
+	vm_offset_t top = ml_io_map(TOPCKGEN, 0x1000), apl = ml_io_map(APMIXED, 0x1000);
+	vm_offset_t infra = ml_io_map(INFRACFG, 0x1000), afe = ml_io_map(AFE, 0x1000);
+	pwrap = (volatile uint32_t *)ml_io_map(PWRAP, 0x1000);
+	g_afe = afe; g_top = top; g_apl = apl; g_infra = infra;
+	clock_enable(top, apl, infra, afe);
+	redwood_mic_external_up();
+	if (mic_up()) {
+		thread_t th;
+		if (kernel_thread_start(mic_drain_thread, NULL, &th) == KERN_SUCCESS) thread_deallocate(th);
+	}
+	thread_terminate(current_thread());
+}
+
 void
 redwood_mtkafe_init(void)
 {
 	thread_t thread;
 
-	if (!PE_parse_boot_argn("mtkafe", &level, sizeof(level)) || level == 0) {
-		return;
-	}
 	PE_parse_boot_argn("mtkafe_secs", &tone_secs, sizeof(tone_secs));
 	if (tone_secs == 0 || tone_secs > 30) tone_secs = 6;
 	PE_parse_boot_argn("mtkafe_gain", &lol_gain, sizeof(lol_gain));
 	if (lol_gain < 0x12) lol_gain = 0x12;   /* lower index = louder; cap at -10 dB (0x12) until physically verified */
 	if (lol_gain > 0x1f) lol_gain = 0x1f;   /* 0x1f = -40 dB, the quietest */
+	if (PE_parse_boot_argn("mtkmic", &mtkmic_level, sizeof(mtkmic_level)) && mtkmic_level > 0) {
+		if (kernel_thread_start(mtkmic_thread, NULL, &thread) == KERN_SUCCESS)
+			thread_deallocate(thread);
+	}
+	if (!PE_parse_boot_argn("mtkafe", &level, sizeof(level)) || level == 0) {
+		return;
+	}
 	if (kernel_thread_start(probe_thread, NULL, &thread) == KERN_SUCCESS) {
 		thread_deallocate(thread);
 	}
@@ -626,4 +725,10 @@ void
 redwood_mtkafe_quiesce(void)
 {
 	playback_down();
+	if (g_afe != 0 && mtkmic_level > 0) {
+		uint32_t v = rd(g_afe, 0x010); wr(g_afe, 0x010, v & ~(1u << 9));   /* VUL12 off */
+		pw(0x239a, 0x0000);   /* MICBIAS0 off */
+		pw(0x2388, 0x0000);   /* ADC1 off */
+		redwood_keep("mtkmic: down (VUL12 off, MICBIAS off, ADC off); fed %llu", mic_fed);
+	}
 }
