@@ -29,6 +29,8 @@ Output: `logs/autotest/<ts>-<profile>/` with `xnu.log`, `args.txt`,
   profile + a 1 kHz tone at -40 dB LOL; checks the DL1 DMA cursor advances.
 - `conn` — Wi-Fi + Bluetooth (180 s session): CONNSYS powered, en0 created, Wi-Fi
   traffic carried (sent>0), bluetoothd opens the BT device and stays stable.
+- `demo` — graphics/UI stability (120 s session): Mali GPU up (step 6/6) and ran a
+  job, backboardd running, SpringBoard launched, no kernel panic.
 
 ## How a check works
 Each test has `pass` regexes (all must appear) and `fail` regexes (any appears ->
