@@ -190,26 +190,25 @@ Next: verify the mux/infra writes, then DL1 ring + ADDA DAC digital path, stage 
 - Verification: autotest profile audio4 checks clocks, codec digital, LOL gain 0x0f9f,
   amp profile, DL1 on (DAC_CON0 0x3), AFE master on, and **DL1_CUR advances** over the
   tone (proves the DMA actually reads the ring). Physical listen still required.
-## Status (autotest audio4)
-Verified PASS: kernel boot, APLL1 powered+enabled (PLL_EN 0x308 bit0 / ISO 0x318 bit1),
-MT6358 digital path, LOL analog gain 0x0f9f (-40 dB), AW87519 kspk profile, DL1_ON
-(DAC_CON0 0x3), IRQ0 MCU on (CON0 0x3a0 bit0, CNT0 480), AFE master on (DAC_MON bit0=0).
-Bus understanding (gate-isolation boot): the infra audio AXI gate CLK_IFR_AUDIO
-(infracfg_ao@10001000, ifr3 bit25, STA 0x94) is ACTIVE-LOW in effect -- default (bit25=0)
-already has the AFE register + CONN interconnect bus ON; SETting bit25 gates it OFF (AFE
-reg0 and CONN read 0). The gate is therefore LEFT AT DEFAULT. With the bus at default the
-DL1->ADDA_DL route sticks: CONN3 (0x2c) bit5 = I_DL1_CH1, CONN4 (0x30) bit6 = I_DL1_CH2
-(read back 0x20). The audio node has NO iommus binding -> memif DMA is physical (no
-IOMMU/MMU_EN issue).
-PENDING (the one remaining node): DL1_CUR stays 0 even with DL1_ON + IRQ0 + fs=48k +
-CONN routed + bus on -- the memif DMA is not reading the ring. Most likely the SPM DRAM
-resource grant the vendor requests via spm_resource_req(SPM_RESOURCE_USER_AUDIO,
-SPM_RESOURCE_ALL) (mtk-lpm; keeps DDR active for the audio master) is not implemented
-here; the SPM resource-req register layout was not located (mtk-spm.c / mtk-lpm.c are
-stubs on this branch). Next: find the spm_resource_req registers (SPM 0x10006000) and
-grant audio the DDR resource, or test the AFE internal sinegen (AFE_SINEGEN_CON0) to
-isolate memif-DMA from the ADDA/analog path. mtkafe=4/5 experimental (off by default);
-mtkafe=1/2 read-only probes work. PARKED here per the no-circles rule.
+## Status (autotest audio4) -- SPEAKER PLAYBACK DMA WORKING (12/12 PASS)
+The full DL1 -> ADDA DAC -> MT6358 LOL -> AW87519 -> speaker chain runs: autotest audio4
+12/12 (run 20261121-235646): APLL1 powered+enabled, MT6358 digital path, LOL gain 0x0f9f
+(-40 dB), AW87519 kspk profile, DL1_ON (DAC_CON0 0x3), IRQ0 MCU on, CONN3 0x20 / CONN4 0x40
+(DL1->ADDA_DL both channels), AFE active (DAC_MON bit0=1), and **DL1 DMA advanced**
+(CUR 0xc52cc190 -> 0xc52cc260), ADDA_SRC_MON0 0x11ae (ADDA receiving data), IRQ0_CNT_MON
+0x1ad (counter counting). A 1 kHz test tone plays for mtkafe_secs (physical listen pending).
+TWO active-low gate findings (the whole debug saga):
+1. infra audio AXI gate CLK_IFR_AUDIO (infracfg_ao@10001000, ifr3 bit25, STA 0x94):
+   default (0) = bus ON; SETting bit25 gates the AFE register + CONN bus OFF. LEFT DEFAULT.
+2. audiosyscon AUDIO_TOP_CON0 (0x11220000 reg0) clock gates (afe bit2, 24m bit9, tuner
+   bit19, adc bit24, dac bit25, dac_predis bit26, tml bit27): ALSO active-low. Default
+   reg0 0xa0fd4038 already has the audio clocks ON; OR-ing the bits to 1 gated them OFF
+   (IRQ0_CNT_MON stayed 0, ADDA_SRC_MON0 0, DL1_CUR 0). KEEP DEFAULT reg0 -- then the
+   sample clock runs, IRQ0 counts, ADDA receives data, and the DL1 memif DMA reads the ring.
+The audio node has NO iommus binding -> memif DMA is physical. AFE_ON_RETM (DAC_MON 0x2ec
+bit0): 1 = active, 0 = retention/off (vendor polls ==0 to confirm off).
+NEXT: mtkafe=5 registers the iOS audio sink (redwood_audio_set_sink) so system sound plays
+(not just the test tone); then volume ramp + microphone. mtkafe=4/5 experimental boot-args.
 
 ## Limits
 - No local vendor audio_param/firmware dumps — AW87519 profile from driver source;

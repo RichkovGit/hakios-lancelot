@@ -37,7 +37,7 @@
 - **Картинка шакальная на 1×** — 375×812 растягивается на 1080×2340; чётко на 2×/нативе.
 - **Интернет в demo не работает** — ядро начинает join, но `wifid` отказывает в ассоциации/DHCP; в отдельных прогонах Wi-Fi трафик шёл.
 - **Bluetooth не доставляет в приложения/Настройки** — TCC не строит identity приложения, промпт Allow не поднимается.
-- **Звук/микрофон — в работе.** Железо подтверждено и настроено: кодек MT6358, усилитель AW87519 (kspk-профиль), аналоговый LOL (−40 dB), AFE master + APLL1 + IRQ0 включены и читаются (`redwood_mtkafe.c`, `mtkafe=4`). Остался узел межсоединения DL1→ADDA_DL (infra audio bus) — DMA пока не идёт; детали и план: [docs/lancelot-audio-backend.md](docs/lancelot-audio-backend.md). Микрофон следующий.
+- **Звук (динамик) — DMA работает.** Вся цепочка DL1→ADDA DAC→MT6358 LOL→AW87519→динамик запущена и проверена автотестом `audio4` (12/12): клоки APLL1, кодек, LOL (−40 dB), профиль усилителя, memif DL1, IRQ0, маршрут DL1→ADDA_DL, **DMA читает кольцо** (CUR движется, ADDA принимает данные). Тон 1 кГц звучит (`mtkafe=4`); sink для звука iOS зарегистрирован (`mtkafe=5`, `audio5`). Громкость/прослушивание и микрофон — следующие. Детали: [docs/lancelot-audio-backend.md](docs/lancelot-audio-backend.md).
 - Экран может гаснуть (auto-lock); натив 1080×2340 + UIKit-scale не сведены с тачем.
 - Камера, вибрация, GPS — в очереди ([docs/lancelot-peripherals.md](docs/lancelot-peripherals.md)).
 - Онлайн-сервисы Apple (активация, Apple ID, iCloud, App Store) — **не поддерживаются, не цель** (нет Secure Enclave).

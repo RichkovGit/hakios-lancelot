@@ -38,7 +38,7 @@ session the phone returns to Android by itself. The iOS system image lives in it
 - **Jagged image at 1×** — 375×812 upscaled to 1080×2340; crisp only at 2× / native.
 - **No internet in the demo config** — the kernel begins joining but `wifid` refuses association / DHCP; Wi-Fi traffic did flow in separate runs.
 - **Bluetooth does not deliver to apps / Settings** — TCC does not construct the app's identity, so the Allow prompt never raises.
-- **Sound / microphone — in progress.** Hardware confirmed and configured: MT6358 codec, AW87519 amp (kspk profile), analog LOL (−40 dB), AFE master + APLL1 + IRQ0 enabled and read back (`redwood_mtkafe.c`, `mtkafe=4`). The DL1→ADDA_DL interconnect (infra audio bus) is the remaining node — DMA not yet running; details/plan: [docs/lancelot-audio-backend.md](docs/lancelot-audio-backend.md). Microphone next.
+- **Sound (speaker) — DMA running.** The full DL1→ADDA DAC→MT6358 LOL→AW87519→speaker chain is up and verified by autotest `audio4` (12/12): APLL1 clocks, codec, LOL (−40 dB), amp profile, DL1 memif, IRQ0, DL1→ADDA_DL route, **DMA reads the ring** (CUR advances, ADDA receives data). A 1 kHz tone plays (`mtkafe=4`); the iOS audio sink is registered (`mtkafe=5`, `audio5`). Volume/listen and microphone next. Details: [docs/lancelot-audio-backend.md](docs/lancelot-audio-backend.md).
 - Screen may sleep (auto-lock); native 1080×2340 + UIKit scale not yet reconciled with touch.
 - Camera, vibration, GPS — queued (see [docs/lancelot-peripherals.md](docs/lancelot-peripherals.md)).
 - Apple online services (activation, Apple ID, iCloud, App Store) — **not supported, not a goal** (no Secure Enclave).

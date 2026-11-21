@@ -17,6 +17,7 @@
 #include <machine/machine_routines.h>
 #include <pexpert/pexpert.h>
 #include <sys/systm.h>
+#include <sys/redwood_audio.h>
 
 extern vm_offset_t ml_io_map(vm_offset_t phys_addr, vm_size_t size);
 extern kern_return_t thread_terminate(thread_t thread);
@@ -260,8 +261,9 @@ clock_enable(vm_offset_t top, vm_offset_t apl, vm_offset_t infra, vm_offset_t af
 	redwood_keep("mtkafe: APLL1 PCW %#x CON1 %#x CON0 %#x PWR %#x", rd(apl, 0x310), rd(apl, 0x30c), rd(apl, 0x308), rd(apl, 0x318));
 	/* audiosyscon gates (reg 0, RMW): afe, 24m, tuner, adc, dac, dac_predis, tml */
 	v = rd(afe, 0x000);
-	wr(afe, 0x000, v | (1u << 2) | (1u << 9) | (1u << 19) | (1u << 24) | (1u << 25) | (1u << 26) | (1u << 27));
-	redwood_keep("mtkafe: audiosyscon reg0 %#x -> %#x", v, rd(afe, 0x000));
+	/* gates may be active-low (like the infra axi gate): default reg0 already has the audio
+	 * clocks on; setting the bits gated them OFF (IRQ0_CNT_MON stayed 0). Keep default. */
+	redwood_keep("mtkafe: audiosyscon reg0 %#x (kept default)", rd(afe, 0x000));
 	/* AFE tuner + 24M enable */
 	wr(afe, 0x3f0, 0x434 | 1u);
 	v = rd(afe, 0xdd0); wr(afe, 0xdd0, v | (1u << 1));
@@ -278,6 +280,8 @@ static uint64_t ring_phys;
 static vm_offset_t ring_va, ring_wc;
 static uint32_t ring_frames = 3840;            /* 8 periods x 480 frames (10 ms) at 48k */
 static unsigned dl1_running;
+static uint32_t wr_frame;
+static uint64_t sink_taken, sink_dropped;
 static const int16_t tone48[48] = {0,392,776,1148,1500,1826,2121,2380,2598,2772,2898,2974,3000,2974,2898,2772,2598,2380,2121,1826,1500,1148,776,392,0,-392,-776,-1148,-1500,-1826,-2121,-2380,-2598,-2772,-2898,-2974,-3000,-2974,-2898,-2772,-2598,-2380,-2121,-1826,-1500,-1148,-776,-392};
 
 static bool
@@ -408,7 +412,7 @@ amp_kspk(void)
 
 /* the DL1 ring: one contiguous piece, a write-combine alias for the CPU writes, filled with a tone */
 static bool
-dl1_alloc(void)
+dl1_alloc(bool tone)
 {
 	vm_offset_t mem = 0;
 	uint32_t bytes = ring_frames * 4;
@@ -418,7 +422,7 @@ dl1_alloc(void)
 	}
 	ring_va = mem; ring_phys = kvtophys(mem); ring_wc = ml_io_map_wcomb(ring_phys, round_page(bytes));
 	volatile int16_t *p = (volatile int16_t *)ring_wc;
-	for (uint32_t f = 0; f < ring_frames; f++) { int16_t s = tone48[f % 48]; p[2 * f] = s; p[2 * f + 1] = s; }
+	for (uint32_t f = 0; f < ring_frames; f++) { int16_t s = tone ? tone48[f % 48] : 0; p[2 * f] = s; p[2 * f + 1] = s; }
 	redwood_keep("mtkafe: DL1 ring %u frames, phys %#llx, wc %#llx", ring_frames, ring_phys, (uint64_t)ring_wc);
 	return true;
 }
@@ -474,7 +478,7 @@ playback_down(void)
 	dl1_running = 0;
 	pw(0x248a, (uint16_t)((0x1f << 7) | 0x1f)); pw(0x2416, 0x0000);
 	amp_write(0x01, 0x00); gpio22(false);
-	redwood_keep("mtkafe: playback down (DL1 off, LOL muted, amp off)");
+	redwood_keep("mtkafe: playback down (DL1 off, LOL muted, amp off); sink taken %llu dropped %llu", sink_taken, sink_dropped);
 }
 
 static bool
@@ -488,6 +492,29 @@ playback_up(void)
 }
 
 /* one-shot register dump to diagnose the DL1 memif (CUR stuck) */
+/* ---- mtkafe=5: the iOS audio sink. mediaserverd writes stereo s16le frames here; we copy
+ * them into the DL1 ring ahead of the hardware read pointer (DL1_CUR). Non-blocking. ---- */
+static uint32_t
+mtk_afe_sink(const int16_t *frames, uint32_t count)
+{
+	if (!dl1_running || ring_wc == 0) { sink_dropped += count; return 0; }
+	uint32_t cur = rd(g_afe, 0x044);                       /* hardware read pointer (byte addr) */
+	uint32_t hw_frame = ((cur - (uint32_t)ring_phys) >> 2) % ring_frames;
+	uint32_t used = (wr_frame - hw_frame + ring_frames) % ring_frames;
+	uint32_t free = ring_frames - 1 - used;
+	uint32_t take = count < free ? count : free;
+	volatile int16_t *p = (volatile int16_t *)ring_wc;
+	for (uint32_t i = 0; i < take; i++) {
+		uint32_t idx = (wr_frame + i) % ring_frames;
+		p[2 * idx] = frames[2 * i];
+		p[2 * idx + 1] = frames[2 * i + 1];
+	}
+	wr_frame = (wr_frame + take) % ring_frames;
+	sink_taken += take;
+	sink_dropped += count - take;
+	return take;
+}
+
 static void
 dump_afe(void)
 {
@@ -505,6 +532,8 @@ dump_afe(void)
 	    rd(g_afe, 0x108), rd(g_afe, 0x124), rd(g_afe, 0x260), rd(g_afe, 0x264), rd(g_afe, 0xe40));
 	redwood_keep("mtkafe-dump: IRQ CON0 %#x CON1 %#x CNT0 %#x EN %#x STATUS %#x | DAC_MON %#x",
 	    rd(g_afe, 0x3a0), rd(g_afe, 0x2e4), rd(g_afe, 0x300), rd(g_afe, 0x3b4), rd(g_afe, 0x3a4), rd(g_afe, 0x2ec));
+	redwood_keep("mtkafe-mon: BUS_MON0 %#x ADDA_SRC_MON0 %#x MON1 %#x UL_SRC_MON0 %#x IRQ0_CNT_MON %#x SINEGEN_CON0 %#x CON2 %#x",
+	    rd(g_afe, 0x244), rd(g_afe, 0x130), rd(g_afe, 0x134), rd(g_afe, 0x148), rd(g_afe, 0x310), rd(g_afe, 0x1f0), rd(g_afe, 0x1dc));
 }
 
 static void
@@ -543,10 +572,11 @@ probe_thread(__unused void *parameter, __unused wait_result_t result)
 		amp_id();
 	}
 	if (level >= 4) {
-		if (dl1_alloc() && playback_up()) {
+		bool tone = (level == 4);
+		if (dl1_alloc(tone) && playback_up()) {
 			dump_afe();
-			redwood_keep("mtkafe: TONE 1 kHz at -40 dB LOL playing for %u s", tone_secs);
-			if (level == 4) {
+			if (tone) {
+				redwood_keep("mtkafe: TONE 1 kHz at -40 dB LOL playing for %u s", tone_secs);
 				uint32_t cur0 = rd(g_afe, 0x044);
 				delay_for_interval(tone_secs, NSEC_PER_SEC);
 				uint32_t cur1 = rd(g_afe, 0x044);
@@ -554,6 +584,16 @@ probe_thread(__unused void *parameter, __unused wait_result_t result)
 				else redwood_keep("mtkafe: DL1 DMA NOT advancing (CUR %#x)", cur0);
 				playback_down();
 				redwood_keep("mtkafe: tone done");
+			} else {
+				wr_frame = 0;
+				redwood_audio_set_sink("mtk-afe", mtk_afe_sink);
+				redwood_keep("mtkafe: iOS audio sink registered (mtk-afe), DL1 running at -40 dB LOL");
+				/* stays running until quiesce; report sink throughput once a second */
+				for (unsigned t = 0; t < tone_secs; t++) {
+					delay_for_interval(1, NSEC_PER_SEC);
+					redwood_keep("mtkafe: sink taken %llu dropped %llu (CUR %#x)", sink_taken, sink_dropped, rd(g_afe, 0x044));
+				}
+				redwood_keep("mtkafe: sink session done (taken %llu dropped %llu)", sink_taken, sink_dropped);
 			}
 		} else {
 			redwood_keep("mtkafe: playback bring-up FAILED");

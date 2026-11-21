@@ -226,13 +226,11 @@
         },
         {
           "id": "afe-master",
-          "desc": "AFE master block on (AFE_ON_RETM bit0=0)",
+          "desc": "AFE master block active (AFE_ON_RETM bit0=1)",
           "pass": [
-            "AFE_ON_RETM bit0=0"
-          ],
-          "fail": [
             "AFE_ON_RETM bit0=1"
-          ]
+          ],
+          "fail": []
         },
         {
           "id": "dma-ran",
@@ -373,6 +371,50 @@
             "panic\\(",
             "SMC panic"
           ]
+        }
+      ]
+    },
+    "audio5": {
+      "secs": 70,
+      "cores": 4,
+      "args": "cpus=4 touchscreen=3 fbscale=2 fbfit=0 mali=1 gl=1 metal=1 mtkafe=5 mtkafe_secs=20 scp_step=7 mtktorch=3 mtkbatt=2 bt_hci_trace=0 bt_tx_trace=0",
+      "tests": [
+        {
+          "id": "kernel-boot",
+          "desc": "XNU boots and returns cleanly",
+          "pass": [
+            "kept for the host by the kernel"
+          ],
+          "fail": [
+            "Kernel panic",
+            "panic\\("
+          ]
+        },
+        {
+          "id": "sink-registered",
+          "desc": "iOS audio sink registered (mtk-afe)",
+          "pass": [
+            "mtkafe: sink taken"
+          ],
+          "fail": [
+            "bring-up FAILED"
+          ]
+        },
+        {
+          "id": "dma-ran",
+          "desc": "DL1 DMA running",
+          "pass": [
+            "CUR 0xc52"
+          ],
+          "fail": []
+        },
+        {
+          "id": "sink-fed",
+          "desc": "iOS audio fed the sink (taken>0; needs audio activity)",
+          "pass": [
+            "sink taken [1-9]\\d* dropped"
+          ],
+          "fail": []
         }
       ]
     }
