@@ -11,6 +11,11 @@ linking; ldid at `$THEOS/toolchain/linux/iphone/bin/ldid`). With this private
 entitlement the app can use CoreBluetooth **without an Allow prompt** (TCC is
 bypassed, not prompted). The app also keeps `NSBluetoothAlwaysUsageDescription`.
 
+**VERIFIED (2026-11-22, autotest btapp 5/5):** with the entitled app in xnusys and BT=1
+(BlueTool inject answers the boot script), `auto_bt=1` launches the app from SpringBoard;
+bluetoothd logs `Registered application - bt_test`, a `bt_test-central` session, and
+`tccRequired : 0` (the bypass works, no Allow prompt). The app scans without interaction.
+
 To apply on the phone: rebuild the system image with the entitled app
 (`BT_A2=1 ./build.sh`, needs the ld64 cross-linker; the app binary can be re-signed
 in place with `ldid -Ssrc/bt_test.entitlements obj/bt_test.app/bt_test`), then

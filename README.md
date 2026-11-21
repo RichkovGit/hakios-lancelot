@@ -28,7 +28,7 @@ session the phone returns to Android by itself. The iOS system image lives in it
 - **Flashlight** — LED191 on two GPIOs (EN152/SEL153), `redwood_mtktorch.c` (`mtktorch=3`) + the iOS ABI.
 - **Battery** — percentage, voltage, current, temperature via the MT6358 fuel gauge (`redwood_mtkbatt.c`, `mtkbatt=2`); matches Android.
 - **Touch** — FocalTech FT8719P (`redwood_fts.c`), reports with zero bad/timeout/CRC errors.
-- **Bluetooth** — the controller answers, `bluetoothd` is stable (a scan-time crash was fixed), LE scan receives advertisers.
+- **Bluetooth** — the controller answers, `bluetoothd` is stable (a scan-time crash was fixed), LE scan receives advertisers. **App delivery works**: the `bt_test` app with the TCC-bypass entitlement (`com.apple.private.tcc.allow`) launches from SpringBoard, registers with `bluetoothd` and scans **without an Allow prompt** (`tccRequired : 0`; autotest `btapp` 5/5, `auto_bt=1`).
 - **Boot splash** — an original HakiOS mark (`mtkloader/splash.h`), no Apple assets.
 
 ## Known bugs / not yet (honest)

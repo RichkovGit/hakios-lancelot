@@ -1861,6 +1861,14 @@ redwood_springboard_init(void)
 			say("redwood: SpringBoard: idle timer disabled (display stays awake)\n");
 		}
 	}
+	{
+		char args[1024] = ""; size_t sz = sizeof(args) - 1;
+		if (sysctlbyname("kern.bootargs", args, &sz, NULL, 0) == 0 && strstr(args, "auto_bt=1") != NULL) {
+			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 35ULL * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+				launch_bt();
+			});
+		}
+	}
 	notify_register_dispatch("com.redwood.unlock", &token, dispatch_get_main_queue(), ^(__unused int t) {
 		unlock();
 	});

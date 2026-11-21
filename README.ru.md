@@ -27,7 +27,7 @@
 - **Фонарик** — LED191 на двух GPIO (EN152/SEL153), `redwood_mtktorch.c` (`mtktorch=3`) + ABI iOS.
 - **Батарея** — процент, напряжение, ток, температура через MT6358 fuel gauge (`redwood_mtkbatt.c`, `mtkbatt=2`); совпадает с Android.
 - **Тач** — FocalTech FT8719P (`redwood_fts.c`), отчёты без ошибок (0 bad/timeout/CRC).
-- **Bluetooth** — контроллер отвечает, `bluetoothd` стабилен (краш при скане исправлен), LE-скан принимает advertiser'ов.
+- **Bluetooth** — контроллер отвечает, `bluetoothd` стабилен (краш при скане исправлен), LE-скан принимает advertiser'ов. **Доставка в приложения работает**: приложение `bt_test` с TCC-bypass entitlement (`com.apple.private.tcc.allow`) запускается из SpringBoard, регистрируется в `bluetoothd` и сканирует **без запроса Allow** (`tccRequired : 0`; автотест `btapp` 5/5, `auto_bt=1`).
 - **Заставка** — оригинальный знак HakiOS (`mtkloader/splash.h`), без ассетов Apple.
 
 ## Известные баги / ещё не готово (честно)

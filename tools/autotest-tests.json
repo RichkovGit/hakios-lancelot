@@ -577,6 +577,60 @@
           "fail": []
         }
       ]
+    },
+    "btapp": {
+      "secs": 120,
+      "cores": 4,
+      "args": "cpus=4 touchscreen=3 fbscale=2 fbfit=0 mali=1 gl=1 metal=1 connsys_step=17 connsys_bt=2 bt_hci_trace=0 bt_tx_trace=0 bt_said=200 bt_said_from=90 applog=1 applog_name=bluetoothd auto_bt=1 mtkbatt=2",
+      "tests": [
+        {
+          "id": "kernel-boot",
+          "desc": "XNU boots and returns cleanly",
+          "pass": [
+            "kept for the host by the kernel"
+          ],
+          "fail": [
+            "Kernel panic",
+            "panic\\("
+          ]
+        },
+        {
+          "id": "bt-daemon",
+          "desc": "bluetoothd opens the BT device",
+          "pass": [
+            "connsys: bt device .* opened by bluetoothd"
+          ],
+          "fail": []
+        },
+        {
+          "id": "app-launch",
+          "desc": "BT app launched + registered with bluetoothd",
+          "pass": [
+            "Registered application - bt_test"
+          ],
+          "fail": [
+            "result 9"
+          ]
+        },
+        {
+          "id": "tcc-bypass",
+          "desc": "TCC bypass entitlement works (tccRequired 0, no prompt)",
+          "pass": [
+            "tccRequired : 0"
+          ],
+          "fail": [
+            "tccRequired : 1"
+          ]
+        },
+        {
+          "id": "app-scan",
+          "desc": "CoreBluetooth central session (app scanning)",
+          "pass": [
+            "Registering central session \"bt_test-central"
+          ],
+          "fail": []
+        }
+      ]
     }
   }
 }
