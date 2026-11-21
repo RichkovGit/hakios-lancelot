@@ -191,17 +191,25 @@ Next: verify the mux/infra writes, then DL1 ring + ADDA DAC digital path, stage 
   amp profile, DL1 on (DAC_CON0 0x3), AFE master on, and **DL1_CUR advances** over the
   tone (proves the DMA actually reads the ring). Physical listen still required.
 ## Status (autotest audio4)
-Verified PASS: kernel boot, APLL1 powered+enabled (PLL_EN/ISO), MT6358 digital path,
-LOL analog gain 0x0f9f (-40 dB), AW87519 kspk profile, DL1_ON, IRQ0 MCU on, AFE master
-on, infra audio-bus gates enabled (STA1 0x2000000 / STA2 0x10, base 0x10001000).
-PENDING: with the infra audio bus enabled the AFE core registers (0x11220000) read 0
-and the DL1->ADDA_DL CONN matrix ignores writes, so DL1_CUR stays 0 (no DMA). The
-interconnect needs the audio infra bus brought up the way the vendor clk framework does
-(aud_infra_axi_clk / aud_infra_26m_clk via their regmap). Tried: raw ifr_audio bit25 SET
-(STA1 0x2000000) and TOPAXI_PROTECTEN_CLR 0x2a4/0x2ac = 0xffffffff -- both leave the AFE
-core reading 0, so the gate maps to a different bank/bit than the raw register. PARKED:
-the gate is left at default (AFE accessible); playback resumes once the bus init is matched. mtkafe=4/5 are experimental boot-args (off by
-default); mtkafe=1/2 read-only probes still work. Research delegated; resume here.
+Verified PASS: kernel boot, APLL1 powered+enabled (PLL_EN 0x308 bit0 / ISO 0x318 bit1),
+MT6358 digital path, LOL analog gain 0x0f9f (-40 dB), AW87519 kspk profile, DL1_ON
+(DAC_CON0 0x3), IRQ0 MCU on (CON0 0x3a0 bit0, CNT0 480), AFE master on (DAC_MON bit0=0).
+Bus understanding (gate-isolation boot): the infra audio AXI gate CLK_IFR_AUDIO
+(infracfg_ao@10001000, ifr3 bit25, STA 0x94) is ACTIVE-LOW in effect -- default (bit25=0)
+already has the AFE register + CONN interconnect bus ON; SETting bit25 gates it OFF (AFE
+reg0 and CONN read 0). The gate is therefore LEFT AT DEFAULT. With the bus at default the
+DL1->ADDA_DL route sticks: CONN3 (0x2c) bit5 = I_DL1_CH1, CONN4 (0x30) bit6 = I_DL1_CH2
+(read back 0x20). The audio node has NO iommus binding -> memif DMA is physical (no
+IOMMU/MMU_EN issue).
+PENDING (the one remaining node): DL1_CUR stays 0 even with DL1_ON + IRQ0 + fs=48k +
+CONN routed + bus on -- the memif DMA is not reading the ring. Most likely the SPM DRAM
+resource grant the vendor requests via spm_resource_req(SPM_RESOURCE_USER_AUDIO,
+SPM_RESOURCE_ALL) (mtk-lpm; keeps DDR active for the audio master) is not implemented
+here; the SPM resource-req register layout was not located (mtk-spm.c / mtk-lpm.c are
+stubs on this branch). Next: find the spm_resource_req registers (SPM 0x10006000) and
+grant audio the DDR resource, or test the AFE internal sinegen (AFE_SINEGEN_CON0) to
+isolate memif-DMA from the ADDA/analog path. mtkafe=4/5 experimental (off by default);
+mtkafe=1/2 read-only probes work. PARKED here per the no-circles rule.
 
 ## Limits
 - No local vendor audio_param/firmware dumps — AW87519 profile from driver source;

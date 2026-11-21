@@ -236,11 +236,11 @@ clock_enable(vm_offset_t top, vm_offset_t apl, vm_offset_t infra, vm_offset_t af
 	uint32_t v;
 
 	/* infra: bring the audio bus and its 26M out of clock gating (SET registers) */
-	/* infra audio-bus gate: enabling ifr_audio bit25 makes the AFE core read 0 (the vendor
-	 * clk framework maps aud_infra_axi_clk through a regmap/bank we have not matched; raw
-	 * bit25 + TOPAXI protection clear both failed). Left at default so the AFE stays
-	 * accessible. The DL1->ADDA_DL interconnect needs this bus -- see docs audio4 PENDING. */
-	redwood_keep("mtkafe: infra STA1(0x94) %#x STA2(0xac) %#x (default)", rd(infra, 0x94), rd(infra, 0xac));
+	/* infra audio bus (infracfg_ao@10001000): the axi gate CLK_IFR_AUDIO bit25 is active-low
+	 * in effect -- default (0) already has the AFE register + CONN interconnect bus ON; setting
+	 * bit25 gates it OFF (AFE reg0 and CONN read 0). Isolation test proved this. Leave both
+	 * gates at default so registers and the DL1->ADDA_DL route stay accessible. */
+	redwood_keep("mtkafe: infra STA1(0x94) %#x STA2(0xac) %#x (left at default, bus on)", rd(infra, 0x94), rd(infra, 0xac));
 	/* top muxes: clear then set, immediate */
 	wr(top, 0x78, 3u << 24); wr(top, 0x74, 0u << 24);          /* audio_sel = clk26m */
 	wr(top, 0x88, 3u << 0);  wr(top, 0x84, 1u << 0);           /* aud_intbus = syspll1_d4 */
