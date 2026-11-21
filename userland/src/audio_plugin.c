@@ -157,7 +157,7 @@ enum {
 
 	kAudioDevicePropertyDeviceUID = 'uid ', kAudioDevicePropertyModelUID = 'muid', kAudioDevicePropertyTransportType = 'tran',
 	kAudioDevicePropertyRelatedDevices = 'akin', kAudioDevicePropertyClockDomain = 'clkd',
-	kAudioDevicePropertyDeviceIsAlive = 'livn', kAudioDevicePropertyDeviceIsRunning = 'goin',
+	kAudioDevicePropertyDeviceIsAlive = 'livn', kAudioDevicePropertyDeviceIsRunning = 'goin', kAudioDevicePropertyDeviceIsRunningSomewhere = 'gone',
 	kAudioDevicePropertyDeviceCanBeDefaultDevice = 'dflt', kAudioDevicePropertyDeviceCanBeDefaultSystemDevice = 'sflt',
 	kAudioDevicePropertyLatency = 'ltnc', kAudioDevicePropertyStreams = 'stm#', kAudioObjectPropertyControlList = 'ctrl',
 	kAudioDevicePropertySafetyOffset = 'saft', kAudioDevicePropertyNominalSampleRate = 'nsrt',
@@ -310,7 +310,7 @@ format_of(AudioObjectID stream)
 
 	return (AudioStreamBasicDescription) {
 		       .mSampleRate = REDWOOD_AUDIO_RATE, .mFormatID = kAudioFormatLinearPCM,
-		       .mFormatFlags = kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked,
+		       .mFormatFlags = kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked | kAudioFormatFlagsNativeEndian,
 		       .mBytesPerPacket = 2 * channels, .mFramesPerPacket = 1, .mBytesPerFrame = 2 * channels,
 		       .mChannelsPerFrame = channels, .mBitsPerChannel = 16,
 	};
@@ -556,6 +556,7 @@ property(AudioObjectID object, const AudioObjectPropertyAddress *address, UInt32
 			WORD(d->output != 0);
 			break;
 		case kAudioDevicePropertyDeviceIsRunning:
+		case kAudioDevicePropertyDeviceIsRunningSomewhere:
 			WORD(d->running != 0);
 			break;
 		case kAudioObjectPropertyOwnedObjects:
@@ -1017,6 +1018,7 @@ do_io_operation(__unused AudioServerPlugInDriverRef driver, __unused AudioObject
 		actuator_write(buffer, frames);
 	} else if (operation == kAudioServerPlugInIOOperationWriteMix && stream == d->output) {
 		/* the kernel takes it all or leaves it: this thread must not wait */
+		if (written == 0) say("redwood: audio: first WriteMix to Speaker, %u frames, sink %d\n", (unsigned)frames, sink);
 		if (sink < 0 || write(sink, buffer, (size_t)frames * REDWOOD_AUDIO_FRAME) < 0) {
 			refused += frames;
 		}

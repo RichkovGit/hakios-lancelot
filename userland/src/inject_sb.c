@@ -1149,8 +1149,13 @@ play_system_sound(void)
 {
 	void *at = dlopen("/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox", RTLD_NOW);
 	void (*play)(uint32_t) = at != NULL ? (void (*)(uint32_t))dlsym(at, "AudioServicesPlaySystemSound") : NULL;
+	char hk[128];
+	snprintf(hk, sizeof(hk), "sb: play_system_sound at=%p play=%p", at, (void *)play);
+	(void)sysctlbyname("kern.redwood.host_keep", NULL, NULL, hk, strlen(hk));
 	if (play != NULL) {
 		play(1007);
+		snprintf(hk, sizeof(hk), "sb: AudioServicesPlaySystemSound(1007) called");
+		(void)sysctlbyname("kern.redwood.host_keep", NULL, NULL, hk, strlen(hk));
 		say("redwood: sound: AudioServicesPlaySystemSound(1007) called (sink test)\n");
 	} else {
 		say("redwood: sound: no AudioServicesPlaySystemSound (%s)\n", at != NULL ? "symbol" : dlerror());
