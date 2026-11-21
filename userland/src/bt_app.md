@@ -2,9 +2,21 @@
 
 Run from `userland`. `BT_A2=package ./build.sh` only cross-builds
 `obj/bt_test.app` and `obj/bt_test_a2_cli`; it neither builds an image nor
-registers or launches anything. Both Mach-O files have plain ad-hoc signatures,
-without the legacy CLI's Bluetooth TCC entitlement. The app has a standard
-`NSBluetoothAlwaysUsageDescription` and requests access through CoreBluetooth.
+registers or launches anything.
+
+**TCC fix (2026-11-22):** the GUI app is now signed with the Bluetooth TCC-bypass
+entitlement `com.apple.private.tcc.allow = kTCCServiceBluetoothAlways`
+(`src/bt_test.entitlements`) via `ldid -S` (build.sh signs `$BT_APP/bt_test` after
+linking; ldid at `$THEOS/toolchain/linux/iphone/bin/ldid`). With this private
+entitlement the app can use CoreBluetooth **without an Allow prompt** (TCC is
+bypassed, not prompted). The app also keeps `NSBluetoothAlwaysUsageDescription`.
+
+To apply on the phone: rebuild the system image with the entitled app
+(`BT_A2=1 ./build.sh`, needs the ld64 cross-linker; the app binary can be re-signed
+in place with `ldid -Ssrc/bt_test.entitlements obj/bt_test.app/bt_test`), then
+`tools/system-flash.sh` writes `system.apfs` to `xnusys` (boot both new images; a
+payload-only update leaves the old `/Applications`). Verify via bluetoothd scan
+logs + the app scanning without a prompt (the bypass means no Allow tap needed).
 
 ## Device test (coordinate first)
 
