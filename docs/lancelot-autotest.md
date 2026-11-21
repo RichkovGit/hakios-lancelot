@@ -29,8 +29,13 @@ Output: `logs/autotest/<ts>-<profile>/` with `xnu.log`, `args.txt`,
   profile + a 1 kHz tone at -40 dB LOL; checks the DL1 DMA cursor advances.
 - `conn` — Wi-Fi + Bluetooth (180 s session): CONNSYS powered, en0 created, Wi-Fi
   traffic carried (sent>0), bluetoothd opens the BT device and stays stable.
+- `audio4g` — speaker tone at -10 dB (mtkafe_gain=18 volume control); 12 checks.
+- `audio5` — iOS audio sink registered (mtkafe=5), DL1 DMA running; sink-fed needs
+  audio activity (mediaserverd writes).
+- `mic` — microphone record DMA (mtkmic=1): MT6358 ADC1 + VUL12 memif up, ADDA_UL->VUL12
+  routed, ~48k mono frames/s drained to /dev/redwood-mic.
 - `demo` — graphics/UI stability (120 s session): Mali GPU up (step 6/6) and ran a
-  job, backboardd running, SpringBoard launched, no kernel panic.
+  job, SpringBoard launched, no kernel panic.
 
 ## How a check works
 Each test has `pass` regexes (all must appear) and `fail` regexes (any appears ->
