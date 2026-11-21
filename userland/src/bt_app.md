@@ -34,9 +34,18 @@ error 9, BluetoothManager.init nil, grey toggle. Fixed by the kernel creating th
 redwood_connsys.c connsys_bt_start once the controller answers 6 HCI commands; logs
 "RedwoodBluetooth: the service bluetooth is in the registry"). Device name comes from
 SCDynamicStoreCopyComputerName, set by net_test device_name (SCPreferencesSetComputerName).
-On lancelot the controller + app delivery are verified (btapp 5/5) and connsys_bt_start
-reaches "after bt" (the RedwoodBluetoothNode call site); the pane itself needs interactive
-verification (open Settings > Bluetooth: green toggle + device list). Remaining gaps from
+On lancelot VERIFIED in an interactive session (2026-11-22, logs/lancelot-interactive.log):
+the IORegistry "bluetooth" service EXISTS (bt_test: "IORegistry bluetooth: found=1", so
+RedwoodBluetoothNode succeeded), CoreBluetooth works (authorization 3, central manager
+state 5 powered on, scanning). Touch flawless (35743 reports, 0 errors). Settings opened.
+**PANE BLOCKER FOUND:** bt_test logs "BluetoothManager available 0 powered 0 powerState 0"
+-- the PRIVATE BluetoothManager framework (which the Settings pane uses, distinct from
+CoreBluetooth/CBCentralManager) reports unavailable/not-powered, so the Settings toggle is
+grey. CoreBluetooth's path works but BluetoothManager's (BTSessionAttachWithQueue /
+MobileBluetooth) does not see the controller as available. Next: make BluetoothManager
+report available/powered -- likely the marconi-bt service name (bt_test: marconi-bt found=0)
+or the BTSessionAttach response bluetoothd gives a system client. The "bluetooth" service
+alone satisfies CoreBluetooth but not BluetoothManager. Remaining gaps from
 the baseline: pair confirmation (User_Confirmation_Request needs a tap on both sides),
 link-key storage, profiles A2DP/HFP/HID + audio, LE GATT connect.
 
