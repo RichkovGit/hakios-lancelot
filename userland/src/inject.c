@@ -2782,6 +2782,68 @@ bt_trace_install(uintptr_t base, uintptr_t from, uintptr_t to, const uintptr_t *
 	(void)sysctlbyname("kern.redwood.host_keep", NULL, NULL, line, strnlen(line, sizeof(line)));
 }
 
+/* Force bluetoothd's PowerManager power-state getter (0x1003a5ea8, returns [pm+0x70]) to
+ * report ON (1). Every MBF power-state read goes through it; the Settings Bluetooth pane
+ * (BluetoothManager) reads powered 0 / grey toggle because the classic stack reads OFF while
+ * the controller is actually on (CoreBluetooth LE works). Single-instruction patch at
+ * 0x1003a5f1c: ldr w0,[x19,#0x70] (b9407260) -> mov w0,#1 (52800020). Boot-arg bt_force_on=1. */
+static void
+bt_force_power_on(uintptr_t base)
+{
+	uint32_t *at = (uint32_t *)(base + (0x1003a5f1cUL - 0x100000000UL));
+	vm_address_t page = (vm_address_t)at & ~(vm_address_t)(vm_page_size - 1);
+	char line[160];
+	kern_return_t kr;
+
+	if (*at != 0xb9407260u) {
+		snprintf(line, sizeof(line), "redwood: bt-force-on: 1003a5f1c holds %08x, not ldr w0,[x19,#0x70]; left alone", *at);
+	} else if ((kr = vm_protect(mach_task_self(), page, vm_page_size, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) != KERN_SUCCESS) {
+		snprintf(line, sizeof(line), "redwood: bt-force-on: cannot write the code (%d)", kr);
+	} else {
+		*at = 0x52800020u;   /* mov w0, #1 */
+		vm_protect(mach_task_self(), page, vm_page_size, FALSE, VM_PROT_READ | VM_PROT_EXECUTE);
+		sys_icache_invalidate(at, 4);
+		snprintf(line, sizeof(line), "redwood: bt-force-on: PowerManager power state forced ON (1003a5f1c patched)");
+	}
+	(void)sysctlbyname("kern.redwood.host_keep", NULL, NULL, line, strnlen(line, sizeof(line)));
+	/* MBF XPC access level: the dispatcher (100220cb4) rejects a session whose [conn+0x50] <= 0
+	 * with "insufficient entitlements to send MBFramework XPC messages" (1006294e8). bt_test gets
+	 * this. Force the loaded access level to 1 at 100220ce0: ldr w8,[x0,#0x50] (b9405008) -> mov w8,#1. */
+	{
+		uint32_t *a2 = (uint32_t *)(base + (0x100220ce0UL - 0x100000000UL));
+		vm_address_t p2 = (vm_address_t)a2 & ~(vm_address_t)(vm_page_size - 1);
+		if (*a2 != 0xb9405008u) {
+			snprintf(line, sizeof(line), "redwood: bt-force-on: 100220ce0 holds %08x, not ldr w8,[x0,#0x50]; left alone", *a2);
+		} else if ((kr = vm_protect(mach_task_self(), p2, vm_page_size, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) != KERN_SUCCESS) {
+			snprintf(line, sizeof(line), "redwood: bt-force-on: cannot write access level (%d)", kr);
+		} else {
+			*a2 = 0x52800028u;   /* mov w8, #1 */
+			vm_protect(mach_task_self(), p2, vm_page_size, FALSE, VM_PROT_READ | VM_PROT_EXECUTE);
+			sys_icache_invalidate(a2, 4);
+			snprintf(line, sizeof(line), "redwood: bt-force-on: MBF access level forced to 1 (100220ce0 patched)");
+		}
+		(void)sysctlbyname("kern.redwood.host_keep", NULL, NULL, line, strnlen(line, sizeof(line)));
+	}
+	/* GetModulePower (10035e5f0) writes the module power state to [x19] from a lookup table
+	 * (str w8,[x19] at 10035e670); it reads 0xffffffff (module not powered) so BluetoothManager
+	 * powered 0. Force the stored state to 1 (ON): str w8,[x19] (b9000268) -> mov w8,#1 (52800028). */
+	{
+		uint32_t *a3 = (uint32_t *)(base + (0x10035e670UL - 0x100000000UL));
+		vm_address_t p3 = (vm_address_t)a3 & ~(vm_address_t)(vm_page_size - 1);
+		if (*a3 != 0xb9000268u) {
+			snprintf(line, sizeof(line), "redwood: bt-force-on: 10035e670 holds %08x, not str w8,[x19]; left alone", *a3);
+		} else if ((kr = vm_protect(mach_task_self(), p3, vm_page_size, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) != KERN_SUCCESS) {
+			snprintf(line, sizeof(line), "redwood: bt-force-on: cannot write module power (%d)", kr);
+		} else {
+			*a3 = 0x52800028u;   /* mov w8, #1 (the next str w8,[x19] stores ON) */
+			vm_protect(mach_task_self(), p3, vm_page_size, FALSE, VM_PROT_READ | VM_PROT_EXECUTE);
+			sys_icache_invalidate(a3, 4);
+			snprintf(line, sizeof(line), "redwood: bt-force-on: module power state forced ON (10035e670 patched)");
+		}
+		(void)sysctlbyname("kern.redwood.host_keep", NULL, NULL, line, strnlen(line, sizeof(line)));
+	}
+}
+
 static void
 bt_hooks(uintptr_t base)
 {
@@ -2804,6 +2866,9 @@ bt_hooks(uintptr_t base)
 	 * knows no bundle of it), and gets nothing (runs 676-707: "advertisements delivered 0"). Every scan entry is made for a foreground session.
 	 */
 	bt_hook_install(23, 0x10058e798UL, bt_disp23, (void *)bt_hook_stub23);
+	if (strstr(args, "bt_force_on=1") != NULL) {
+		bt_force_power_on(base);
+	}
 	if (!bt_diag) {
 		return;
 	}

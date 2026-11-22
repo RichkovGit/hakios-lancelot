@@ -729,6 +729,70 @@
           "fail": []
         }
       ]
+    },
+    "btsettings": {
+      "secs": 120,
+      "cores": 4,
+      "args": "cpus=4 touchscreen=3 fbscale=2 fbfit=0 mali=1 gl=1 metal=1 connsys_step=17 connsys_bt=2 bt_hci_trace=0 bt_tx_trace=0 bt_said=300 bt_said_from=20 applog=1 applog_name=bluetoothd auto_bt=1 bt_force_on=1 mtkbatt=2",
+      "tests": [
+        {
+          "id": "kernel-boot",
+          "desc": "XNU boots and returns cleanly",
+          "pass": [
+            "kept for the host by the kernel"
+          ],
+          "fail": [
+            "Kernel panic",
+            "panic\\("
+          ]
+        },
+        {
+          "id": "power-forced",
+          "desc": "PowerManager power state forced ON (patch applied)",
+          "pass": [
+            "bt-force-on: PowerManager power state forced ON"
+          ],
+          "fail": [
+            "left alone"
+          ]
+        },
+        {
+          "id": "mbf-access",
+          "desc": "MBF XPC access level forced (no insufficient-entitlements reject)",
+          "pass": [
+            "MBF access level forced to 1"
+          ],
+          "fail": [
+            "insufficient entitlements to send MBFramework"
+          ]
+        },
+        {
+          "id": "module-power",
+          "desc": "GetModulePower returns ON (1, was 0xffffffff)",
+          "pass": [
+            "module power state forced ON",
+            "Returning bluetooth power state: 1"
+          ],
+          "fail": []
+        },
+        {
+          "id": "bt-powered",
+          "desc": "PowerManager reports state 1 (forced ON)",
+          "pass": [
+            "PowerManager power state is 1"
+          ],
+          "fail": []
+        },
+        {
+          "id": "settings-attach",
+          "desc": "MBF SessionAttach from bt_test/Settings reaches bluetoothd",
+          "pass": [
+            "Attached session for \"bt_test-MBF",
+            "Preferences-MBF"
+          ],
+          "fail": []
+        }
+      ]
     }
   }
 }

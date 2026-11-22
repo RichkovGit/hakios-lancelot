@@ -51,14 +51,20 @@ arrives, and the advertising stack reads "OFF" (classic off, LE on). CoreBluetoo
 a separate LE path (CBCentralManager state 5). BluetoothManager.powered reads the classic
 stack power -> OFF -> powered 0 -> grey toggle. BluetoothCapability=0 is a red herring;
 marconi-bt alias low-value (bluetooth fallback already found).
-FIX PATH: a bluetoothd injection hook (sibling of bt_entry_fix at inject.c ~2342, hooked
-bluetoothd+0x58e798) on the function answering the MBF power-state / session-attach reply,
-forcing powered-on / attach-success for system clients (type 0x20) -- safe since the
-controller is already on (CoreBluetooth state 5). Find the offset via bt_diag=1 call-trace
-(inject.c ~2563). PASS CRITERION: bluetoothd logs kCBMsgIdSessionAttach
-"com.apple.Preferences-MBF-..." and the toggle turns green. Diagnostic: client-side hook
-MobileBluetooth BTSessionAttachWithQueue (+0x89d88c) to log where it stops; check whether
-unsigned com.redwood.bt_test is rejected at XPC ("Failed to retrieve signing ID"). Remaining gaps from
+FIX IMPLEMENTED (bt_force_on=1, inject.c bt_force_power_on, three single-instruction patches):
+1. PowerManager getter 0x1003a5f1c: ldr w0,[x19,#0x70] -> mov w0,#1. VERIFIED: bluetoothd
+   logs "PowerManager power state is 1".
+2. MBF XPC access level 0x100220ce0: ldr w8,[x0,#0x50] -> mov w8,#1. VERIFIED BREAKTHROUGH:
+   the "insufficient entitlements to send MBFramework XPC messages" reject is gone, and
+   bt_test-MBF kCBMsgIdSessionAttach now COMPLETES ("Attached session for bt_test-MBF-...",
+   device queries flow). This was the main MBF handshake blocker.
+3. GetModulePower store 0x10035e670: str w8,[x19] -> mov w8,#1 (the following str stores it).
+   Changed the returned value 0xffffffff -> 0, but BluetoothManager still powered 0: the
+   value goes through a lookup table (0x10067be70, indexed by the raw module state) and the
+   ON encoding is not yet matched. REMAINING: force the post-table BTPowerMode to the ON
+   value (read the table / the GetModulePower handler 0x1002d6d2c reply), or power the module
+   via the setter path. The MBF attach + PowerManager are fixed; only the module-power ON
+   encoding remains for the Settings toggle to read powered. Remaining gaps from
 the baseline: pair confirmation (User_Confirmation_Request needs a tap on both sides),
 link-key storage, profiles A2DP/HFP/HID + audio, LE GATT connect.
 
