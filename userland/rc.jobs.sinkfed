@@ -1,0 +1,5 @@
+# sink-fed verification (mtkafe=5): the audio route iOS reports, a tone through iOS AudioQueue
+# (mediaserverd -> HAL plugin -> /dev/redwood-audio -> mtk-afe sink -> speaker), then a raw tone
+# straight to the kernel sink. sink taken > 0 on the tone = iOS audio reaches the speaker.
+/redwood/bin/sound_test springboard route wait 3 tone 5 wait 2 raw 3 wait 2 system 1100
+/bin/ps -A

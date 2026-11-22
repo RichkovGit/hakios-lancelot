@@ -212,17 +212,20 @@ confirmed loaded (mediaserverd opens /dev/redwood-audio). audio5 3/3. To feed th
 inject_sb.c play_system_sound (com.redwood.sound notification + sound_test=1 auto-play), and
 inject_media.c set_default_speaker (CoreAudio HAL: list devices, find UID "Speaker", set
 kAudioHardwarePropertyDefaultOutputDevice) run from a pthread at 20/40 s (mediaserverd services
-XPC not libdispatch, and its sandbox blocks kern.bootargs). mediaserverd does not crash, but
-sink taken stayed 0 and no routing marker logged across 4 builds -- the default-output route
-and/or the plugin IO start needs interactive mediaserverd/CoreAudio debugging (os_log of
-mediaserverd, whether StartIO/WriteMix is ever called). PARKED per the no-circles rule.
-The kernel tone path (mtkafe=4) is verified playing regardless; the sink + DMA are ready. Volume: mtkafe_gain=N (LOL PGA index, cap -10 dB=0x12); audio4g 12/12 at -10 dB.
+XPC not libdispatch, and its sandbox blocks kern.bootargs).
+SINK-FED VERIFIED (autotest sinkfed 4/4, run 20261122-172715, RC_JOBS=rc.jobs.sinkfed): the
+earlier 'sink taken 0' was just a silent boot (no audio activity). sound_test (springboard
+route tone 5 raw 3 system 1100) drives real playback: kernel logs 'redwood-audio: 8.96 s
+written at 47621 frames/s, 5.95 s of it sound, peak 15%' (the iOS AudioQueue tone through
+mediaserverd -> HAL plugin -> /dev/redwood-audio -> mtk-afe sink -> speaker), '3.00 s ... peak
+49%' (raw tone), '2.47 s ... sound' (system sound 1100). iOS AUDIO PLAYS THROUGH THE SPEAKER.
+The kernel tone path (mtkafe=4) also verified; sink + DMA + iOS routing all working. Volume: mtkafe_gain=N (LOL PGA index, cap -10 dB=0x12); audio4g 12/12 at -10 dB.
 MICROPHONE RECORD DMA WORKING (mtkmic=1, autotest mic 4/4, run 20261122-004136): MT6358
 ADC1/AIN0 (MICBIAS0 1.9V, PGA idx3) -> ADDA UL -> VUL12 memif (record DMA) -> mono drain
 -> redwood_mic_feed -> /dev/redwood-mic ring (redwood_mic_external_up, no DSP). VUL12 CUR
 advances, ~48k mono frames/s fed (142168 -> 426036). Same AFE-master bit0 fix as DL1.
 Mic content (non-silent) + iOS recording need physical/interactive verification.
-NEXT: physical listen/record verification; iOS audio activity for sink-fed; mic to iOS apps.
+NEXT: physical listen/record verification (user); mic to iOS apps (record path ready).
 
 ## Limits
 - No local vendor audio_param/firmware dumps — AW87519 profile from driver source;

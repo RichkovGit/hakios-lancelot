@@ -802,6 +802,48 @@
           "fail": []
         }
       ]
+    },
+    "sinkfed": {
+      "secs": 120,
+      "cores": 4,
+      "args": "cpus=4 touchscreen=3 fbscale=2 fbfit=0 mali=1 gl=1 metal=1 mtkafe=5 mtkafe_secs=60 buttons=2 mtk_cpufreq=2 mali_mhz=800 mtkbatt=2 bt_hci_trace=0 bt_tx_trace=0",
+      "tests": [
+        {
+          "id": "kernel-boot",
+          "desc": "XNU boots and returns cleanly",
+          "pass": [
+            "kept for the host by the kernel"
+          ],
+          "fail": [
+            "Kernel panic",
+            "panic\\("
+          ]
+        },
+        {
+          "id": "sink-registered",
+          "desc": "iOS audio sink registered (mtk-afe)",
+          "pass": [
+            "iOS audio sink registered"
+          ],
+          "fail": []
+        },
+        {
+          "id": "ios-tone-fed",
+          "desc": "iOS audio reached the sink and played (redwood-audio wrote sound)",
+          "pass": [
+            "redwood-audio:.*of it sound"
+          ],
+          "fail": []
+        },
+        {
+          "id": "audio-written",
+          "desc": "kernel redwood-audio wrote samples at 48k",
+          "pass": [
+            "redwood-audio:.*written at \\d+ frames"
+          ],
+          "fail": []
+        }
+      ]
     }
   }
 }

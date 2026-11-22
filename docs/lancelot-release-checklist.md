@@ -16,8 +16,9 @@ until the supported paths below pass on this device.
 - `native` 4/4: 1080x2340 native surface + SpringBoard at raised clocks (`fbscale=0 fbwidth=1080 fbheight=2340`).
 - `conn` 4/4: Wi-Fi associated + DHCP + traffic carried.
 - `demo` 5/5: Mali GPU up + ran a job, SpringBoard launched, no panic.
-- `audio5` 3/3: iOS audio sink registered + DL1 DMA running (sink-fed pending mediaserverd routing).
-Pending interactive verification: physical audio listen/record, iOS audio reaching the speaker (sink-fed), touch 60 fps feel, native-resolution UIKit layout, BT Settings pane.
+- `audio5` 3/3: iOS audio sink registered + DL1 DMA running.
+- `sinkfed` 4/4: iOS audio plays through the speaker — sound_test tone via AudioQueue→mediaserverd→HAL plugin→/dev/redwood-audio→mtk-afe sink→speaker (`redwood-audio: ... of it sound`).
+Pending interactive verification: physical audio listen/record, touch 60 fps feel, native-resolution UIKit layout, BT Settings pane toggle confirmation.
 
 - XNU boots and hands control back to Android. On the latest diagnostic run,
   Wi-Fi associated and DHCP assigned an address.
