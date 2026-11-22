@@ -948,6 +948,64 @@
           "fail": []
         }
       ]
+    },
+    "nativefps2": {
+      "secs": 280,
+      "cores": 4,
+      "args": "cpus=4 touchscreen=3 fbscale=3 fbfit=0 fb_filter=0 fb_threads=6 fb_beat=0 ca_vbl=1 mali=1 gl=1 metal=1 buttons=2 mtk_cpufreq=2 mali_mhz=800 touch_lat=1 scp_step=7 mtktorch=3 mtkbatt=2 bt_hci_trace=0 bt_tx_trace=0",
+      "tests": [
+        {
+          "id": "kernel-boot",
+          "desc": "XNU boots and returns cleanly",
+          "pass": [
+            "kept for the host by the kernel"
+          ],
+          "fail": [
+            "Kernel panic",
+            "panic\\("
+          ]
+        },
+        {
+          "id": "iphone-x-surface",
+          "desc": "iPhone X 1125x2436 render -> 1080x2340 panel",
+          "pass": [
+            "display 1125x2436 on a panel of 1080x2340"
+          ],
+          "fail": []
+        },
+        {
+          "id": "ca-vbl",
+          "desc": "CoreAnimation takes display vsync (ca_vbl=1)",
+          "pass": [
+            "ca_vbl=1: CoreAnimation"
+          ],
+          "fail": []
+        },
+        {
+          "id": "springboard",
+          "desc": "SpringBoard launched",
+          "pass": [
+            "SpringBoard"
+          ],
+          "fail": []
+        },
+        {
+          "id": "gestures",
+          "desc": "automated gestures ran",
+          "pass": [
+            "tl: p"
+          ],
+          "fail": []
+        },
+        {
+          "id": "frames",
+          "desc": "window server frames rendered",
+          "pass": [
+            "tl: g"
+          ],
+          "fail": []
+        }
+      ]
     }
   }
 }

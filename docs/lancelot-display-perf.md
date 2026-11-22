@@ -72,6 +72,10 @@ scale to the 1080x2340 panel (the panel always scans out at its native 1080x2340
   sharp-enough compromise; full iPhone X native render is layout-safe + sharpest but needs the
   idle-before/commit bottleneck addressed for 60 fps. The native-resolution + stable-GPU goal is
   met at the render/layout level; 60 fps at full native render is the remaining optimization.
+- ca_vbl=1 tested (nativefps2): CoreAnimation synced to display vsync cuts idle-before to 7-8 ms,
+  but the full 1125x2436 draw is 14-15 ms + gpu 8-12 ms (~22-27 ms/frame) -> ~40 fps, draw-bound.
+  So full iPhone X native render is ~40 fps even at raised clocks; fbscale=2 (750x1624, draw ~5 ms)
+  is the 60 fps mode. 60 fps at full native render would need a faster draw (NEON/GPU offload).
 
 ## Recommended next (interactive)
 1. Re-test native gated on SpringBoard (`waitproc SpringBoard` + settled frame before
