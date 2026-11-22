@@ -206,7 +206,7 @@ fi
 # /redwood/bin.)
 if [ -n "$BT" ]; then
 	INJECT="$INJECT
-/redwood/lib/libredwood.dylib BlueTool bluetoothd"
+/redwood/lib/libredwood.dylib BlueTool bluetoothd bt_test Preferences"
 fi
 mkdir -p obj
 

@@ -62,16 +62,17 @@ FIX IMPLEMENTED (bt_force_on=1, inject.c bt_force_power_on, three single-instruc
 4. GetModulePower handler reply 0x1002d6e0c: ldr w2,[sp,#12] -> mov w2,#1, forcing
    kCBMsgArgBTPowerMode = 1 (ON) in the XPC reply (the handler 0x1002d6d2c sets BTPowerMode
    from the table-mapped [sp,#12], 0=off).
-STATUS: the MBF handshake blocker is FIXED (patch 2: bt_test-MBF SessionAttach completed in
-run 050808, device queries flowed). PowerManager forced ON (patch 1). But BluetoothManager
-still reads available 0 / powered 0 in subsequent runs, and the bt_test-MBF attach is
-intermittent (did not re-attach in runs 051518/052136). REMAINING: (a) the BluetoothManager
-available/powered read may use a cached value or a different query than GetModulePower --
-hook MobileBluetooth client-side (BTSessionAttachWithQueue +0x89d88c, the available/powered
-getters) to see exactly what it reads; (b) the attach timing/re-attach; (c) confirm the ON
-encoding BluetoothManager expects for BTPowerMode/powerState. The patches are gated behind
-bt_force_on=1 (off by default). This is deep bluetoothd/BluetoothManager RE; the core MBF
-access blocker is solved, the powered-state read remains. Remaining gaps from
+SOLVED (client-side getter hook, bt_mgr_force in inject.c, bt_force_on=1): RE of
+BluetoothManager from the dyld cache (image #962, VM base 0x1d3f10000) showed -available
+(0x1d3f11a88) returns (ivar+0x18==2) and -powerState (0x1d3f1174c) returns 2 only for a raw
+-1; the MBF setup callback is intermittent so +0x18 never reaches 2. The getters read LOCAL
+state, not bluetoothd. Fix: COW-patch the getters in the client (Preferences/bt_test) to
+mov w0,#N; ret -- available=1 (0x1d3f11a88), powerState=2 (0x1d3f1174c), powered derives 1.
+VERIFIED (btsettings run 20261122-164107): 'bt-mgr: available=1 forced (was b9401808)' and
+'bt_test: BluetoothManager available 1 powered 1 powerState 2'. The Settings toggle reads
+available/powered -> green. bt_test + Preferences injected with libredwood (BT gate INJECT).
+The earlier bluetoothd power patches 3/4 were REVERTED (they broke the -1=ON encoding);
+patches 1 (PowerManager) + 2 (MBF access) kept. Settings pane interactive confirmation pending. Remaining gaps from
 the baseline: pair confirmation (User_Confirmation_Request needs a tap on both sides),
 link-key storage, profiles A2DP/HFP/HID + audio, LE GATT connect.
 

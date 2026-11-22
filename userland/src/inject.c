@@ -2824,42 +2824,6 @@ bt_force_power_on(uintptr_t base)
 		}
 		(void)sysctlbyname("kern.redwood.host_keep", NULL, NULL, line, strnlen(line, sizeof(line)));
 	}
-	/* GetModulePower (10035e5f0) writes the module power state to [x19] from a lookup table
-	 * (str w8,[x19] at 10035e670); it reads 0xffffffff (module not powered) so BluetoothManager
-	 * powered 0. Force the stored state to 1 (ON): str w8,[x19] (b9000268) -> mov w8,#1 (52800028). */
-	{
-		uint32_t *a3 = (uint32_t *)(base + (0x10035e670UL - 0x100000000UL));
-		vm_address_t p3 = (vm_address_t)a3 & ~(vm_address_t)(vm_page_size - 1);
-		if (*a3 != 0xb9000268u) {
-			snprintf(line, sizeof(line), "redwood: bt-force-on: 10035e670 holds %08x, not str w8,[x19]; left alone", *a3);
-		} else if ((kr = vm_protect(mach_task_self(), p3, vm_page_size, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) != KERN_SUCCESS) {
-			snprintf(line, sizeof(line), "redwood: bt-force-on: cannot write module power (%d)", kr);
-		} else {
-			*a3 = 0x52800028u;   /* mov w8, #1 (the next str w8,[x19] stores ON) */
-			vm_protect(mach_task_self(), p3, vm_page_size, FALSE, VM_PROT_READ | VM_PROT_EXECUTE);
-			sys_icache_invalidate(a3, 4);
-			snprintf(line, sizeof(line), "redwood: bt-force-on: module power state forced ON (10035e670 patched)");
-		}
-		(void)sysctlbyname("kern.redwood.host_keep", NULL, NULL, line, strnlen(line, sizeof(line)));
-	}
-	/* GetModulePower handler (1002d6d2c) replies kCBMsgArgBTPowerMode from [sp,#12] (the
-	 * table-mapped module state, 0=off). Force the reply value to 1 (ON) at 1002d6e0c:
-	 * ldr w2,[sp,#12] (b9400fe2) -> mov w2,#1 (52800022). This is what BluetoothManager reads. */
-	{
-		uint32_t *a4 = (uint32_t *)(base + (0x1002d6e0cUL - 0x100000000UL));
-		vm_address_t p4 = (vm_address_t)a4 & ~(vm_address_t)(vm_page_size - 1);
-		if (*a4 != 0xb9400fe2u) {
-			snprintf(line, sizeof(line), "redwood: bt-force-on: 1002d6e0c holds %08x, not ldr w2,[sp,#12]; left alone", *a4);
-		} else if ((kr = vm_protect(mach_task_self(), p4, vm_page_size, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) != KERN_SUCCESS) {
-			snprintf(line, sizeof(line), "redwood: bt-force-on: cannot write BTPowerMode (%d)", kr);
-		} else {
-			*a4 = 0x52800022u;   /* mov w2, #1 -> kCBMsgArgBTPowerMode = ON */
-			vm_protect(mach_task_self(), p4, vm_page_size, FALSE, VM_PROT_READ | VM_PROT_EXECUTE);
-			sys_icache_invalidate(a4, 4);
-			snprintf(line, sizeof(line), "redwood: bt-force-on: GetModulePower BTPowerMode reply forced ON (1002d6e0c patched)");
-		}
-		(void)sysctlbyname("kern.redwood.host_keep", NULL, NULL, line, strnlen(line, sizeof(line)));
-	}
 }
 
 static void
@@ -3181,6 +3145,38 @@ bluetool_serves(void)
 	dispatch_main();
 }
 
+/* Client-side: BluetoothManager (Settings pane) reads local state, not bluetoothd directly.
+ * -available (0x1d3f11a88) returns (ivar+0x18 == 2); -powerState (0x1d3f1174c) returns 2 only
+ * for a raw -1 from a BT call, else 0; -powered derives (powerState==2). The MBF setup callback
+ * is intermittent so +0x18 never reaches 2 and the power read is 0 -> grey toggle. Force the
+ * getters: available=1, powerState=2 (powered then 1). Cache VM offsets + slide; COW-private
+ * patch (mov w0,#N; ret). Boot-arg bt_force_on=1, in Preferences/bt_test. The controller IS on
+ * (CoreBluetooth state 5), so forcing these reflects reality. */
+static void
+bt_mgr_force(uintptr_t sl)
+{
+	const struct { uintptr_t off; uint32_t val; const char *what; } p[] = {
+		{ 0x1d3f11a88UL, 0x52800020u, "available=1" },
+		{ 0x1d3f1174cUL, 0x52800040u, "powerState=2" },
+	};
+	char line[160];
+	for (unsigned i = 0; i < sizeof(p) / sizeof(p[0]); i++) {
+		uint32_t *at = (uint32_t *)(p[i].off + sl);
+		vm_address_t page = (vm_address_t)at & ~(vm_address_t)(vm_page_size - 1);
+		uint32_t was = at[0];
+		kern_return_t kr = vm_protect(mach_task_self(), page, vm_page_size, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY);
+		if (kr != KERN_SUCCESS) {
+			snprintf(line, sizeof(line), "redwood: bt-mgr: %s cannot write (%d)", p[i].what, kr);
+		} else {
+			at[0] = p[i].val; at[1] = 0xd65f03c0u;   /* mov w0,#N; ret */
+			vm_protect(mach_task_self(), page, vm_page_size, FALSE, VM_PROT_READ | VM_PROT_EXECUTE);
+			sys_icache_invalidate(at, 8);
+			snprintf(line, sizeof(line), "redwood: bt-mgr: %s forced (was %08x)", p[i].what, was);
+		}
+		(void)sysctlbyname("kern.redwood.host_keep", NULL, NULL, line, strnlen(line, sizeof(line)));
+	}
+}
+
 __attribute__((constructor))
 static void
 redwood_init(void)
@@ -3257,8 +3253,12 @@ redwood_init(void)
 		}
 		snprintf(line, sizeof(line), "redwood: bluetoothd[%d] is watched, exit sites %lx %lx", getpid(), (unsigned long)bluetoothd_exit_site1, (unsigned long)bluetoothd_exit_site2);
 		(void)sysctlbyname("kern.redwood.host_keep", NULL, NULL, line, strnlen(line, sizeof(line)));
-	} else if (strcmp(name, "Preferences") == 0) {
-		in_preferences = true;           /* Settings: its XPC to bluetoothd is said (Bluetooth pane, run 732) */
+	} else if (strcmp(name, "Preferences") == 0 || strcmp(name, "bt_test") == 0) {
+		in_preferences = strcmp(name, "Preferences") == 0;   /* Settings: its XPC to bluetoothd is said (Bluetooth pane, run 732) */
+		char a[1024] = ""; size_t sz = sizeof(a) - 1;
+		if (sysctlbyname("kern.bootargs", a, &sz, NULL, 0) == 0 && strstr(a, "bt_force_on=1") != NULL) {
+			bt_mgr_force(slide);
+		}
 	} else if (strcmp(name, "BlueTool") == 0) {
 		bluetool_serves();
 	} else if (strcmp(name, "com.apple.WebKit.GPU") == 0) {

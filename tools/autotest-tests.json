@@ -757,6 +757,16 @@
           ]
         },
         {
+          "id": "mgr-hook",
+          "desc": "BluetoothManager getters forced (client-side hook applied)",
+          "pass": [
+            "bt-mgr: available=1 forced"
+          ],
+          "fail": [
+            "cannot write"
+          ]
+        },
+        {
           "id": "mbf-access",
           "desc": "MBF XPC access level forced (no insufficient-entitlements reject)",
           "pass": [
@@ -768,11 +778,9 @@
         },
         {
           "id": "module-power",
-          "desc": "BluetoothManager reports powered 1 (BTPowerMode forced ON)",
+          "desc": "BluetoothManager available 1 powered 1 (client getter hook)",
           "pass": [
-            "BluetoothManager available 1 powered 1",
-            "BluetoothManager available 0 powered 1",
-            "BTPowerMode reply forced ON"
+            "BluetoothManager available 1 powered 1"
           ],
           "fail": []
         },

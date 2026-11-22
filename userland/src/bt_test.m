@@ -148,6 +148,10 @@ main(int argc, char **argv)
 			    (int)[bm performSelector:NSSelectorFromString(@"available")] & 1,
 			    (int)[bm performSelector:NSSelectorFromString(@"powered")] & 1,
 			    (long)[bm performSelector:NSSelectorFromString(@"powerState")]);
+			void *bmp = (__bridge void *)bm;
+			say("bt_test: BM state +0x18=%d (0=not-attached 1=waiting 2=setup) handle+8=%p lastInitError=%ld",
+			    *(int *)((char *)bmp + 0x18), *(void **)((char *)bmp + 8),
+			    (long)[bm performSelector:NSSelectorFromString(@"lastInitError")]);
 		}
 		[[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:seconds]];
 		say("bt_test: scan over: isScanning %d", (int)manager.isScanning);
