@@ -238,6 +238,13 @@ Pending interactive verification: physical audio listen/record, touch 60 fps fee
   credentials, serials, nearby radio identifiers, screenshots, firmware and
   proprietary OS images. A ramdisk may embed network credentials. The current
   checkout is shallow: a local scan is not a full history audit.
+- [x] Publication audit (round 44, tools/.pub-audit*.sh): 759 tracked files, all source
+  (c/h/py/sh/md/cpp/xml/plist/m/entitlements/patch). 0 private markers (tokens/passwords/
+  serials/keys), 0 Wi-Fi creds, 0 Apple/proprietary binaries (.dylib/.framework/.bundle/.o/.a),
+  0 blobs >1 MB. ios165/ tracked = fetch/build scripts only (proprietary rootfs gitignored);
+  prebuilt/ = mkbootimg.py only. README legal note: Apple user space self-fetched from IPSW,
+  vendor firmware off your own phone; XNU patch APSL 2.0, rest MIT. NOT auto-published (local
+  commits on `publish`, no push). History audit still pending before a public release.
 - [ ] Resolve the existing tracked firmware headers, vendor EFI files, prebuilt
   payloads and documentation images before release. Ignore rules do not remove
   files already tracked. If provenance or distribution rights are unverified, omit
