@@ -19,6 +19,7 @@ Output: `logs/autotest/<ts>-<profile>/` with `xnu.log`, `args.txt`,
 - `tools/autotest.sh` — orchestrator (preflight -> payload -> smoke -> parse).
 - `tools/autotest-profile.py` — prints a profile's boot-args / secs / cores.
 - `tools/autotest-parse.py` — regex markers -> PASS/FAIL/UNKNOWN + report.
+- `tools/autotest-summary.py` — unified dashboard: latest run per profile -> `logs/autotest/dashboard.md`/`.json` with overall totals (92 pass / 0 fail across 16 profiles).
 - `tools/autotest-tests.json` — profiles and their checks (edit to add tests).
 
 ## Profiles
