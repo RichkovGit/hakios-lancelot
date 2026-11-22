@@ -844,6 +844,50 @@
           "fail": []
         }
       ]
+    },
+    "fps": {
+      "secs": 280,
+      "cores": 4,
+      "args": "cpus=4 touchscreen=3 fbscale=2 fbfit=0 fb_filter=0 fb_threads=6 fb_beat=0 mali=1 gl=1 metal=1 buttons=2 mtk_cpufreq=2 mali_mhz=800 touch_lat=1 scp_step=7 mtktorch=3 mtkbatt=2 bt_hci_trace=0 bt_tx_trace=0",
+      "tests": [
+        {
+          "id": "kernel-boot",
+          "desc": "XNU boots and returns cleanly",
+          "pass": [
+            "kept for the host by the kernel"
+          ],
+          "fail": [
+            "Kernel panic",
+            "panic\\("
+          ]
+        },
+        {
+          "id": "gpu-up",
+          "desc": "Mali GPU up (step 6/6)",
+          "pass": [
+            "mali: came up to step 6 of 6"
+          ],
+          "fail": [
+            "MMU fault [1-9]"
+          ]
+        },
+        {
+          "id": "gestures",
+          "desc": "automated gestures ran (rwtouch tl: p samples)",
+          "pass": [
+            "tl: p"
+          ],
+          "fail": []
+        },
+        {
+          "id": "frames",
+          "desc": "window server frames rendered (tl: g)",
+          "pass": [
+            "tl: g"
+          ],
+          "fail": []
+        }
+      ]
     }
   }
 }

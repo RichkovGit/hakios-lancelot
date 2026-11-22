@@ -14,6 +14,7 @@ until the supported paths below pass on this device.
 - `btsettings` 5/5: Bluetooth Settings pane — client-side BluetoothManager getter hook forces `available 1 powered 1 powerState 2` (the pane reads local state ivars; MBF setup callback intermittent). Toggle reads green. (`bt_force_on=1`.)
 - `perf` 5/5: raised clocks A75 @1999 MHz + Mali @800 MHz (`buttons=2 mtk_cpufreq=2 mali_mhz=800`), stable, SpringBoard up — the fix for the ~30 fps frame-budget root cause.
 - `native` 4/4: 1080x2340 native surface + SpringBoard at raised clocks (`fbscale=0 fbwidth=1080 fbheight=2340`).
+- `fps` 4/4 + frames.py: touch gestures **58.5-59.2 fps** with raised clocks (automated rwtouch gestures, 4% frames >33 ms vs baseline ~30 fps); kernel touch 125 Hz, 0 bad reports.
 - `conn` 4/4: Wi-Fi associated + DHCP + traffic carried.
 - `demo` 5/5: Mali GPU up + ran a job, SpringBoard launched, no panic.
 - `audio5` 3/3: iOS audio sink registered + DL1 DMA running.

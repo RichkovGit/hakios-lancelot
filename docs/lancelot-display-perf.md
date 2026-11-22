@@ -48,6 +48,16 @@ Mali up step 6/6, SpringBoard launched, clean return, no panic over 100 s. Nativ
 + stability verified objectively; UIKit layout (360x780 points) + sustained fps feel still
 need interactive verification.
 
+## VERIFIED: ~60 fps touch gestures with raised clocks (autotest fps, 20261122-175251)
+rc.jobs.fps drives automated gestures (rwtouch swipes/taps/Control Center/Settings), touch_lat=1,
+tools/frames.py measures frame pacing. With buttons=2 mtk_cpufreq=2 mali_mhz=800:
+- swipe/tap gestures: **58.5-59.2 fps** (near 60), 0% over 33 ms on most.
+- all gestures: 408 frame steps, 16% over 16.7 ms, 4% over 33 ms (baseline was ~30 fps).
+- home/unlock button animation: 30 fps (heavier zoom); 0 GPU waits >= 1 ms.
+The ~30 fps root cause (underclocked silicon) is fixed: gestures now near 60 fps. The kernel
+touch path is 125 Hz with 0 bad reports. Remaining: the unlock zoom and a few idle-before
+frames (window server waiting for a commit) still drop below 60; subjective feel pending user.
+
 ## Recommended next (interactive)
 1. Re-test native gated on SpringBoard (`waitproc SpringBoard` + settled frame before
    tapping): `fbscale=0 fbwidth=1080 fbheight=2340 fbfit=0 fb_filter=0 fb_threads=6
