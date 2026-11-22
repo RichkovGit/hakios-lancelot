@@ -230,9 +230,13 @@ the encoder LDO LCLDO_ENC 1.8V was written to the WRONG PMIC register (0x239c = 
 = MICBIAS1) instead of AUDDEC_ANA_CON14 = 0x2424 (vendor mt_adc_supply_event). Fixed: pwm(0x2424,
 0x2500,0x0100) then 0x2500; plus codec-top domain (DCXO_CW14 0x7ac bit13, AUDDEC_ANA_CON13 bit4=0
 AUDGLB, AUDENC_ANA_CON6 0x2394=1 CLKSQ, AUD_TOP_CKPDN_CON0 0x220c), PGA gain 0x2388=0x5341, and
-UL IIR coefficients 0x290-0x2a0 (IIR on bit10 needs them or outputs 0). The mic needs the audio
-bring-up (mtkafe) to fully power the codec top: mic profile uses mtkafe=4 mtkmic=1 (standalone
-mtkmic still silent). Peak ~1259-1562 = real ambient audio. iOS app recording: physical verify.
+UL IIR coefficients 0x290-0x2a0 (IIR on bit10 needs them or outputs 0). The mic needs the full audio
+bring-up (mtkafe): mic profile uses mtkafe=4 mtkmic=1, peak ~1259-1562 = real ambient audio.
+Standalone mtkmic (no mtkafe) still silent even after adding codec_digital() + the codec global
+LDO/bias (0x2424=0x1055) to mic_up -- the speaker playback_up (lol_analog/amp/DL1 ADDA enable)
+provides a further enable the ADC needs; replicating it standalone is parked (no-circles). In the
+demo (mtkafe=5 sink-fed + mtkmic=1) the bring-up runs, so the mic works for iOS app recording.
+iOS app recording: physical verify.
 NEXT: physical listen/record verification (user); mic to iOS apps (record path ready).
 
 ## Limits

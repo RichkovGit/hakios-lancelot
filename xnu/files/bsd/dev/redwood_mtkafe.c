@@ -706,6 +706,7 @@ mtkmic_thread(__unused void *parameter, __unused wait_result_t result)
 	pwrap = (volatile uint32_t *)ml_io_map(PWRAP, 0x1000);
 	g_afe = afe; g_top = top; g_apl = apl; g_infra = infra;
 	clock_enable(top, apl, infra, afe);
+	codec_digital();              /* full codec-top digital power (as the speaker), so the mic works standalone */
 	redwood_mic_external_up();
 	if (mic_up()) {
 		thread_t th;
