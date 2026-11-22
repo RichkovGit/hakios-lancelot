@@ -58,6 +58,21 @@ The ~30 fps root cause (underclocked silicon) is fixed: gestures now near 60 fps
 touch path is 125 Hz with 0 bad reports. Remaining: the unlock zoom and a few idle-before
 frames (window server waiting for a commit) still drop below 60; subjective feel pending user.
 
+## Native resolution reconciled (autotest nativefps 6/6, 20261122-182824)
+KEY (MiniIOMobileFramebuffer.cpp:126-128): iOS carries the iPhone X identity and only knows that
+screen (1125x2436). ANY other reported size -> MobileGestalt "unknown screen class" -> the UI has
+NO layout for it. So truly-native fbwidth=1080 fbheight=2340 (the `native` profile) allocates the
+surface but breaks UIKit layout. The LAYOUT-SAFE native is to render the iPhone X 1125x2436 and
+scale to the 1080x2340 panel (the panel always scans out at its native 1080x2340):
+- `nativefps` (fbscale=3, no fbwidth override): "display 1125x2436 on a panel of 1080x2340",
+  SpringBoard with the correct iPhone X layout, GPU up, stable. VERIFIED 6/6.
+- Perf tradeoff (frames.py, raised clocks): full 1125x2436 render (2.53 MP) gestures 10-41 fps,
+  50% frames >16.7 ms, dominated by "idle before" (window server waiting for a commit/GPU fence,
+  draw itself <1 ms); fbscale=2 (750x1624, 1.22 MP) gives 58-59 fps. So fbscale=2 is the 60 fps
+  sharp-enough compromise; full iPhone X native render is layout-safe + sharpest but needs the
+  idle-before/commit bottleneck addressed for 60 fps. The native-resolution + stable-GPU goal is
+  met at the render/layout level; 60 fps at full native render is the remaining optimization.
+
 ## Recommended next (interactive)
 1. Re-test native gated on SpringBoard (`waitproc SpringBoard` + settled frame before
    tapping): `fbscale=0 fbwidth=1080 fbheight=2340 fbfit=0 fb_filter=0 fb_threads=6
