@@ -9,7 +9,7 @@ until the supported paths below pass on this device.
 **Verified by the autotest stand (`tools/autotest.sh`, reports in `logs/autotest/`):**
 - `hwprobe` 7/7: accelerometer/SCP, flashlight GPIO, MT6358 codec id, AW87519 amp id, battery telemetry.
 - `audio4` / `audio4g` 12/12: speaker playback DMA (DL1→ADDA DAC→MT6358 LOL→AW87519), 1 kHz tone plays, volume control (`mtkafe_gain`). The audiosyscon/infra audio gates are active-low — kept at default.
-- `mic` 4/4: microphone record DMA (MT6358 ADC1→ADDA UL→VUL12), ~48k mono frames/s into `/dev/redwood-mic`.
+- `mic` 5/5 (non-silent capture verified, peak 1562; LCLDO_ENC reg fix): microphone record DMA (MT6358 ADC1→ADDA UL→VUL12), ~48k mono frames/s into `/dev/redwood-mic`.
 - `btapp` 5/5: Bluetooth app delivery — the entitled `bt_test` app launches from SpringBoard, registers with `bluetoothd`, `tccRequired : 0` (TCC bypass), scans.
 - `btsettings` 5/5: Bluetooth Settings pane — client-side BluetoothManager getter hook forces `available 1 powered 1 powerState 2` (the pane reads local state ivars; MBF setup callback intermittent). Toggle reads green. (`bt_force_on=1`.)
 - `perf` 5/5: raised clocks A75 @1999 MHz + Mali @800 MHz (`buttons=2 mtk_cpufreq=2 mali_mhz=800`), stable, SpringBoard up — the fix for the ~30 fps frame-budget root cause.
