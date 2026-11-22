@@ -575,6 +575,16 @@
             "mtkmic: fed [1-9]\\d*"
           ],
           "fail": []
+        },
+        {
+          "id": "mic-content",
+          "desc": "mic captures non-silent audio (peak > 0)",
+          "pass": [
+            "mtkmic: fed \\d+ frames \\(CUR 0x[0-9a-f]+\\), peak [1-9]\\d* of 32768"
+          ],
+          "fail": [
+            "peak 0 of 32768"
+          ]
         }
       ]
     },

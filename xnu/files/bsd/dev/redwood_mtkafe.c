@@ -612,6 +612,7 @@ static uint64_t mic_phys;
 static vm_offset_t mic_rd;                 /* uncached alias: the hardware writes the ring, we read */
 static uint32_t mic_frames = 3840;
 static uint32_t mic_drain;                 /* frame index drained up to */
+static uint32_t mic_peak;                  /* loudest absolute sample seen (0 = silent) */
 static uint64_t mic_fed;
 
 static bool
@@ -675,9 +676,15 @@ mic_drain_thread(__unused void *parameter, __unused wait_result_t result)
 		if (avail > mic_frames - 1) avail = mic_frames - 1;
 		volatile int16_t *p = (volatile int16_t *)mic_rd;
 		uint32_t n = 0;
-		while (n < avail && n < 480) { mono[n] = p[(mic_drain + n) % mic_frames]; n++; }
+		while (n < avail && n < 480) {
+			int16_t s = p[(mic_drain + n) % mic_frames];
+			mono[n] = s;
+			uint32_t a = s < 0 ? (uint32_t)-s : (uint32_t)s;
+			if (a > mic_peak) mic_peak = a;
+			n++;
+		}
 		if (n) { redwood_mic_feed(mono, n); mic_fed += n; mic_drain = (mic_drain + n) % mic_frames; }
-		if ((t % 100) == 99) redwood_keep("mtkmic: fed %llu frames (CUR %#x)", mic_fed, cur);
+		if ((t % 100) == 99) redwood_keep("mtkmic: fed %llu frames (CUR %#x), peak %u of 32768", mic_fed, cur, mic_peak);
 	}
 	redwood_keep("mtkmic: drain done, fed %llu frames", mic_fed);
 	thread_terminate(current_thread());
