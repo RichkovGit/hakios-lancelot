@@ -2842,6 +2842,24 @@ bt_force_power_on(uintptr_t base)
 		}
 		(void)sysctlbyname("kern.redwood.host_keep", NULL, NULL, line, strnlen(line, sizeof(line)));
 	}
+	/* GetModulePower handler (1002d6d2c) replies kCBMsgArgBTPowerMode from [sp,#12] (the
+	 * table-mapped module state, 0=off). Force the reply value to 1 (ON) at 1002d6e0c:
+	 * ldr w2,[sp,#12] (b9400fe2) -> mov w2,#1 (52800022). This is what BluetoothManager reads. */
+	{
+		uint32_t *a4 = (uint32_t *)(base + (0x1002d6e0cUL - 0x100000000UL));
+		vm_address_t p4 = (vm_address_t)a4 & ~(vm_address_t)(vm_page_size - 1);
+		if (*a4 != 0xb9400fe2u) {
+			snprintf(line, sizeof(line), "redwood: bt-force-on: 1002d6e0c holds %08x, not ldr w2,[sp,#12]; left alone", *a4);
+		} else if ((kr = vm_protect(mach_task_self(), p4, vm_page_size, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) != KERN_SUCCESS) {
+			snprintf(line, sizeof(line), "redwood: bt-force-on: cannot write BTPowerMode (%d)", kr);
+		} else {
+			*a4 = 0x52800022u;   /* mov w2, #1 -> kCBMsgArgBTPowerMode = ON */
+			vm_protect(mach_task_self(), p4, vm_page_size, FALSE, VM_PROT_READ | VM_PROT_EXECUTE);
+			sys_icache_invalidate(a4, 4);
+			snprintf(line, sizeof(line), "redwood: bt-force-on: GetModulePower BTPowerMode reply forced ON (1002d6e0c patched)");
+		}
+		(void)sysctlbyname("kern.redwood.host_keep", NULL, NULL, line, strnlen(line, sizeof(line)));
+	}
 }
 
 static void

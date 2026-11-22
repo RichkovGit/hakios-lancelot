@@ -58,13 +58,20 @@ FIX IMPLEMENTED (bt_force_on=1, inject.c bt_force_power_on, three single-instruc
    the "insufficient entitlements to send MBFramework XPC messages" reject is gone, and
    bt_test-MBF kCBMsgIdSessionAttach now COMPLETES ("Attached session for bt_test-MBF-...",
    device queries flow). This was the main MBF handshake blocker.
-3. GetModulePower store 0x10035e670: str w8,[x19] -> mov w8,#1 (the following str stores it).
-   Changed the returned value 0xffffffff -> 0, but BluetoothManager still powered 0: the
-   value goes through a lookup table (0x10067be70, indexed by the raw module state) and the
-   ON encoding is not yet matched. REMAINING: force the post-table BTPowerMode to the ON
-   value (read the table / the GetModulePower handler 0x1002d6d2c reply), or power the module
-   via the setter path. The MBF attach + PowerManager are fixed; only the module-power ON
-   encoding remains for the Settings toggle to read powered. Remaining gaps from
+3. GetModulePower store 0x10035e670: str w8,[x19] -> mov w8,#1 (changed 0xffffffff -> 0).
+4. GetModulePower handler reply 0x1002d6e0c: ldr w2,[sp,#12] -> mov w2,#1, forcing
+   kCBMsgArgBTPowerMode = 1 (ON) in the XPC reply (the handler 0x1002d6d2c sets BTPowerMode
+   from the table-mapped [sp,#12], 0=off).
+STATUS: the MBF handshake blocker is FIXED (patch 2: bt_test-MBF SessionAttach completed in
+run 050808, device queries flowed). PowerManager forced ON (patch 1). But BluetoothManager
+still reads available 0 / powered 0 in subsequent runs, and the bt_test-MBF attach is
+intermittent (did not re-attach in runs 051518/052136). REMAINING: (a) the BluetoothManager
+available/powered read may use a cached value or a different query than GetModulePower --
+hook MobileBluetooth client-side (BTSessionAttachWithQueue +0x89d88c, the available/powered
+getters) to see exactly what it reads; (b) the attach timing/re-attach; (c) confirm the ON
+encoding BluetoothManager expects for BTPowerMode/powerState. The patches are gated behind
+bt_force_on=1 (off by default). This is deep bluetoothd/BluetoothManager RE; the core MBF
+access blocker is solved, the powered-state read remains. Remaining gaps from
 the baseline: pair confirmation (User_Confirmation_Request needs a tap on both sides),
 link-key storage, profiles A2DP/HFP/HID + audio, LE GATT connect.
 

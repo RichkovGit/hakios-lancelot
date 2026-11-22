@@ -768,10 +768,11 @@
         },
         {
           "id": "module-power",
-          "desc": "GetModulePower returns ON (1, was 0xffffffff)",
+          "desc": "BluetoothManager reports powered 1 (BTPowerMode forced ON)",
           "pass": [
-            "module power state forced ON",
-            "Returning bluetooth power state: 1"
+            "BluetoothManager available 1 powered 1",
+            "BluetoothManager available 0 powered 1",
+            "BTPowerMode reply forced ON"
           ],
           "fail": []
         },
