@@ -629,12 +629,20 @@ mic_up(void)
 	wr(g_afe, 0xe40, 0x31);                    /* AUD_PAD_TOP */
 	wr(g_afe, 0xe00, 0x0);                     /* MTKAIF_CFG0 protocol 1 */
 	v = rd(g_afe, 0x120); wr(g_afe, 0x120, v & ~1u);   /* ADDA_TOP_CON0 bit0=0 */
-	wr(g_afe, 0x114, 0x60401);                 /* UL_SRC_CON0 */
+	wr(g_afe, 0x114, 0x60401);                 /* UL_SRC_CON0 (48k + IIR on bit10) */
+	wr(g_afe, 0x290, 0x00000000); wr(g_afe, 0x294, 0x00003FB8);   /* UL IIR coeffs (vendor 35Hz@48k); */
+	wr(g_afe, 0x298, 0x3FB80000); wr(g_afe, 0x29c, 0x3FB80000);   /* IIR on without coeffs outputs 0 */
+	wr(g_afe, 0x2a0, 0x0000C048);
 	v = rd(g_afe, 0xe20); wr(g_afe, 0xe20, v & ~1u);   /* MTKAIF_RX_CFG0 bit0=0 (AMIC) */
 	/* MT6358 ADC analog (TurnOnADcPowerACC) */
 	pwm(0x2422, 1u << 5, 1u << 5);             /* AUDDEC_ANA_CON13 bit5=1 */
 	pw(0x238e, 0x0000);                        /* AUDENC_ANA_CON3 */
-	pwm(0x239c, 0x2500, 0x2500);               /* AUDENC_ANA_CON14 LCLDO_ENC 1.8V */
+	pwm(0x2424, 0x2500, 0x0100);               /* AUDDEC_ANA_CON14 bit8: LCLDO_ENC 1.8V enable (was wrongly 0x239c=MICBIAS1; ADC produced zeros) */
+	pwm(0x2424, 0x2500, 0x2500);               /* AUDDEC_ANA_CON14: LCLDO_ENC remote sense (vendor mt_adc_supply_event) */
+	pwm(0x07ac, 0x2000, 0x2000);               /* DCXO_CW14 bit13: audio DCXO CLK_BUF */
+	pwm(0x2422, 0x0010, 0x0000);               /* AUDDEC_ANA_CON13 bit4=0: global bias VA28 on (AUDGLB) */
+	pw(0x2394, 0x0001);                        /* AUDENC_ANA_CON6: CLKSQ 26M en */
+	pwm(0x220c, 0x0066, 0x0000);               /* AUD_TOP_CKPDN_CON0: AUD_CK/AUDIF_CK/AUDNCP_CK/ZCD13M_CK on */
 	pwm(0x2292, 0xbf, 0);                      /* PMIC_AUDIO_TOP_CON0 */
 	pw(0x2290, 0x0000);                        /* PMIC_AFE_TOP_CON0 */
 	pwm(0x2288, 0x4001, 0x0001);               /* AFE_UL_DL_CON0=1 */
@@ -645,7 +653,7 @@ mic_up(void)
 	pw(0x00de, 0x0249);                        /* GPIO_MODE3 */
 	pw(0x239a, 0x0021);                        /* MICBIAS0 1.9V (route set above) */
 	pw(0x2388, 0x0041);                        /* ADC1 PGA idx3 + enable */
-	pw(0x2388, 0x5041);                        /* ADC1 CON0 */
+	pw(0x2388, 0x5341);                        /* ADC1 CON0 + RG_AUDPREAMPLGAIN=3 */
 	/* VUL12 record memif */
 	wr(g_afe, 0x350, (uint32_t)mic_phys);
 	wr(g_afe, 0x358, (uint32_t)(mic_phys + bytes - 1));

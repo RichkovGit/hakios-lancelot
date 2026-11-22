@@ -224,7 +224,15 @@ MICROPHONE RECORD DMA WORKING (mtkmic=1, autotest mic 4/4, run 20261122-004136):
 ADC1/AIN0 (MICBIAS0 1.9V, PGA idx3) -> ADDA UL -> VUL12 memif (record DMA) -> mono drain
 -> redwood_mic_feed -> /dev/redwood-mic ring (redwood_mic_external_up, no DSP). VUL12 CUR
 advances, ~48k mono frames/s fed (142168 -> 426036). Same AFE-master bit0 fix as DL1.
-Mic content (non-silent) + iOS recording need physical/interactive verification.
+MIC CONTENT VERIFIED NON-SILENT (autotest mic 5/5, run 20261122-200239, peak 1562 of 32768):
+the drain now tracks peak amplitude. ROOT CAUSE of the earlier all-zero capture FOUND+FIXED:
+the encoder LDO LCLDO_ENC 1.8V was written to the WRONG PMIC register (0x239c = AUDENC_ANA_CON10
+= MICBIAS1) instead of AUDDEC_ANA_CON14 = 0x2424 (vendor mt_adc_supply_event). Fixed: pwm(0x2424,
+0x2500,0x0100) then 0x2500; plus codec-top domain (DCXO_CW14 0x7ac bit13, AUDDEC_ANA_CON13 bit4=0
+AUDGLB, AUDENC_ANA_CON6 0x2394=1 CLKSQ, AUD_TOP_CKPDN_CON0 0x220c), PGA gain 0x2388=0x5341, and
+UL IIR coefficients 0x290-0x2a0 (IIR on bit10 needs them or outputs 0). The mic needs the audio
+bring-up (mtkafe) to fully power the codec top: mic profile uses mtkafe=4 mtkmic=1 (standalone
+mtkmic still silent). Peak ~1259-1562 = real ambient audio. iOS app recording: physical verify.
 NEXT: physical listen/record verification (user); mic to iOS apps (record path ready).
 
 ## Limits
