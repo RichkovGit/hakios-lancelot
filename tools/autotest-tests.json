@@ -537,7 +537,7 @@
     "mic": {
       "secs": 70,
       "cores": 4,
-      "args": "cpus=4 touchscreen=3 fbscale=2 fbfit=0 mali=1 gl=1 metal=1 mtkafe=4 mtkmic=1 mtkafe_secs=15 mtkbatt=2 bt_hci_trace=0 bt_tx_trace=0",
+      "args": "cpus=4 touchscreen=3 fbscale=2 fbfit=0 mali=1 gl=1 metal=1 mtkafe=5 mtkmic=1 mtkafe_secs=15 mtkbatt=2 bt_hci_trace=0 bt_tx_trace=0",
       "tests": [
         {
           "id": "kernel-boot",

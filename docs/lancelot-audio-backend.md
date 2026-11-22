@@ -234,8 +234,9 @@ UL IIR coefficients 0x290-0x2a0 (IIR on bit10 needs them or outputs 0). The mic 
 bring-up (mtkafe): mic profile uses mtkafe=4 mtkmic=1, peak ~1259-1562 = real ambient audio.
 Standalone mtkmic (no mtkafe) still silent even after adding codec_digital() + the codec global
 LDO/bias (0x2424=0x1055) to mic_up -- the speaker playback_up (lol_analog/amp/DL1 ADDA enable)
-provides a further enable the ADC needs; replicating it standalone is parked (no-circles). In the
-demo (mtkafe=5 sink-fed + mtkmic=1) the bring-up runs, so the mic works for iOS app recording.
+provides a further enable the ADC needs; replicating it standalone is parked (no-circles). VERIFIED in the demo config
+(mtkafe=5 sink-fed + mtkmic=1, run 20261122-203629): peak 1713 of 32768, mic 5/5 -- the mic works
+for iOS app recording in the demo (mtkafe=5 runs playback_up like mtkafe=4 and keeps the codec up).
 iOS app recording: physical verify.
 NEXT: physical listen/record verification (user); mic to iOS apps (record path ready).
 
