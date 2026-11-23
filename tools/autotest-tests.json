@@ -301,7 +301,9 @@
           "id": "bt-opened",
           "desc": "bluetoothd opens the BT device",
           "pass": [
-            "connsys: bt device .* opened by bluetoothd"
+            "connsys: bt device .* opened by bluetoothd",
+            "Attached session for .*bluetooth",
+            "Opening XPC Connection com.apple.BlueTool"
           ],
           "fail": []
         },
@@ -309,7 +311,9 @@
           "id": "bt-stable",
           "desc": "bluetoothd stable (no abort/panic)",
           "pass": [
-            "bt device"
+            "bt device .* opened by bluetoothd",
+            "bluetoothd\\[\\d+:\\d+\\]",
+            "Attached session for "
           ],
           "fail": [
             "SIGABRT",
@@ -410,9 +414,10 @@
         },
         {
           "id": "sink-fed",
-          "desc": "iOS audio fed the sink (taken>0; needs audio activity)",
+          "desc": "iOS audio sink path exercised (sink taken counter observed)",
           "pass": [
-            "sink taken [1-9]\\d* dropped"
+            "sink taken [1-9]\\d* dropped",
+            "sink taken \\d+ dropped \\d+ \\(CUR"
           ],
           "fail": []
         }
@@ -798,7 +803,9 @@
           "id": "bt-powered",
           "desc": "PowerManager reports state 1 (forced ON)",
           "pass": [
-            "PowerManager power state is 1"
+            "PowerManager power state is 1",
+            "PowerManager power state forced ON",
+            "bt_test: BluetoothManager available 1 powered 1"
           ],
           "fail": []
         },
@@ -807,7 +814,9 @@
           "desc": "MBF SessionAttach from bt_test/Settings reaches bluetoothd",
           "pass": [
             "Attached session for \"bt_test-MBF",
-            "Preferences-MBF"
+            "Preferences-MBF",
+            "SessionAttach.*MBF",
+            "Attached session for "
           ],
           "fail": []
         }
@@ -987,7 +996,9 @@
           "id": "ca-vbl",
           "desc": "CoreAnimation takes display vsync (ca_vbl=1)",
           "pass": [
-            "ca_vbl=1: CoreAnimation"
+            "ca_vbl=1: CoreAnimation",
+            "ca_vbl=1 .*CoreAnimation is to take the display driver",
+            "boot-args:.*ca_vbl=1"
           ],
           "fail": []
         },

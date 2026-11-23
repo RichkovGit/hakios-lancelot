@@ -1,0 +1,89 @@
+{
+  "totals": {
+    "PASS": 98,
+    "FAIL": 0,
+    "UNKNOWN": 0
+  },
+  "profiles": {
+    "hwprobe": {
+      "PASS": 7,
+      "FAIL": 0,
+      "UNKNOWN": 0
+    },
+    "audio3": {
+      "PASS": 6,
+      "FAIL": 0,
+      "UNKNOWN": 0
+    },
+    "audio4": {
+      "PASS": 12,
+      "FAIL": 0,
+      "UNKNOWN": 0
+    },
+    "audio4g": {
+      "PASS": 12,
+      "FAIL": 0,
+      "UNKNOWN": 0
+    },
+    "audio5": {
+      "PASS": 4,
+      "FAIL": 0,
+      "UNKNOWN": 0
+    },
+    "sinkfed": {
+      "PASS": 4,
+      "FAIL": 0,
+      "UNKNOWN": 0
+    },
+    "mic": {
+      "PASS": 5,
+      "FAIL": 0,
+      "UNKNOWN": 0
+    },
+    "conn": {
+      "PASS": 6,
+      "FAIL": 0,
+      "UNKNOWN": 0
+    },
+    "demo": {
+      "PASS": 5,
+      "FAIL": 0,
+      "UNKNOWN": 0
+    },
+    "btapp": {
+      "PASS": 5,
+      "FAIL": 0,
+      "UNKNOWN": 0
+    },
+    "btsettings": {
+      "PASS": 7,
+      "FAIL": 0,
+      "UNKNOWN": 0
+    },
+    "perf": {
+      "PASS": 5,
+      "FAIL": 0,
+      "UNKNOWN": 0
+    },
+    "native": {
+      "PASS": 4,
+      "FAIL": 0,
+      "UNKNOWN": 0
+    },
+    "nativefps": {
+      "PASS": 6,
+      "FAIL": 0,
+      "UNKNOWN": 0
+    },
+    "fps": {
+      "PASS": 4,
+      "FAIL": 0,
+      "UNKNOWN": 0
+    },
+    "nativefps2": {
+      "PASS": 6,
+      "FAIL": 0,
+      "UNKNOWN": 0
+    }
+  }
+}
